@@ -2,7 +2,6 @@
 #include "UI.h"
 
 
-
 UI::UI()
 {
 }
@@ -105,7 +104,7 @@ void UI::DumpRAM() {
 		Serial.println();
 	}
 }
-#define BUFFER_SIZE 512
+#define BUFFER_SIZE 256
 void UI::EraseRAM()
 {
 
@@ -115,12 +114,10 @@ void UI::EraseRAM()
     memset(rowBytes, ERASE_BYTE,BUFFER_SIZE);
     unsigned long startTime = millis();
 	Serial.print(F("Erasing RAM.."));
-	int marker = SRAM_SIZE / 10;
-	int nextPercent = 0;
     
     for(uint16_t line = 0; line < SCREEN_HEIGHT;line++){
-        memset(rowBytes,0, SCREEN_WIDTH);
-        programmer.WriteBytes(line<< 8, rowBytes,SCREEN_WIDTH);
+        
+        programmer.WriteBytes(line<< 8, rowBytes,BUFFER_SIZE);
     }
 
 	// for (int i = 0; i < SRAM_SIZE; i+= BUFFER_SIZE) {
@@ -206,9 +203,8 @@ void UI::ProcessInput() {
         for(uint16_t line = 0; line < SCREEN_HEIGHT;line++){
             color = (line & 0x03) | (line *2 & 0x03) << 3 | (line%6 << 2);
             Serial.print("Drawing line on Y = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
-            memset(rowBytes,0,5);
-            memset(rowBytes + SCREEN_WIDTH - 10, 0, 5);
-            memset(rowBytes + 5, color, SCREEN_WIDTH - 10);
+            //memset(rowBytes,0,5);
+            memset(rowBytes, color, SCREEN_WIDTH);
             programmer.WriteBytes(line<< 8, rowBytes,SCREEN_WIDTH);
             // for(byte x = 5; x < SCREEN_WIDTH - 10; x++){
                 
@@ -229,25 +225,38 @@ void UI::ProcessInput() {
         for(uint16_t line = 0; line < SCREEN_WIDTH;line++){
             color = (line & 0x03) | (line *2 & 0x03) << 3 | (line%6 << 2);
             Serial.print("Drawing line on X = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
-            memset(colBytes,0,5);
-            memset(colBytes + SCREEN_WIDTH - 10, 0, 5);
-            memset(colBytes + 5, color, SCREEN_WIDTH - 10);
+            memset(colBytes, color, SCREEN_WIDTH);
             for(int y = 0; y < SCREEN_HEIGHT; y++){
                 programmer.WriteByte((y << 8) + line, colBytes[y]);
             }
-            // for(byte x = 5; x < SCREEN_WIDTH - 10; x++){
-                
-            //     programmer.WriteByte(line<< 8 | (x & 0xFF), color,1,false);
-            //     //delay(1);
-            //     //Serial.print(line << 8 | x,HEX); Serial.print(" ");                
-            // }
-            //Serial.println();
-            //delay(10);
         }
         Serial.print(F("Draw lne : Done in ")); Serial.print((millis() - startTime)/1000);Serial.println(" seconds.");
 		//needPrintMenu = true;
 	}
-    else
+    else if(resp[0] == 'i' || resp[0] == 'I'){
+        char input = ' ';
+        byte * chr;
+        byte yOffset = 2;
+        byte xOffset = 2;
+        unsigned long lastEntered = millis();
+        while(input!= 'q'){
+            Serial.println("Enter number to draw");
+            input = Serial.read();
+            while(!Serial.available() && lastEntered + 5000 > millis());
+
+            if(!Serial.available()){
+                Serial.println("No input detected. Quitting.");
+                break;
+            }
+            if(input == 0 || input - 32 < 0 || (input - 32) > sizeof(CHARS) / sizeof(CHARS[0])){
+                Serial.print("Invalid Entry: "); Serial.println(input - 32);
+                continue;
+            }
+            console.write((uint8_t)(input - 32));
+            lastEntered = millis();
+        }
+            
+    }
     needPrintMenu = true;
 }
 

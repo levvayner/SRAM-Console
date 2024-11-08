@@ -1,10 +1,12 @@
 #include <Arduino.h>
 #include "SRAM/SRAM.h"
+#include "UI/Console.h"
 #include "UI/UI.h"
 
 
 SRAM programmer = SRAM();
 ProgramRom programRom = ProgramRom();
+Console console;
 UI ui = UI();
 
 void setup() {

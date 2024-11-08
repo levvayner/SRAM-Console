@@ -2,15 +2,13 @@
 #define _UI_H
 #include "Arduino.h"
 
-#include "SRAM/SRAM.h"
-#include "Programming/ProgramRom.h"
+
 //#define DEBUG	1
 // #define VERIFY 1
-#define SCREEN_WIDTH 138
-#define SCREEN_HEIGHT 150
+#include "Console.h"
 extern SRAM programmer;
 extern ProgramRom programRom;
-
+extern Console console;
 class UI
 {
 public:
