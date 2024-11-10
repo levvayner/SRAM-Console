@@ -219,7 +219,7 @@ void UI::ProcessInput() {
 		//needPrintMenu = true;
 	}
     else if (resp[0] == 'v' || resp[0] == 'V') {
-		byte colBytes[SCREEN_HEIGHT];
+		byte colBytes[max(SCREEN_HEIGHT, SCREEN_WIDTH)];
         byte color = 0;
         unsigned long startTime = millis();
         for(uint16_t line = 0; line < SCREEN_WIDTH;line++){
@@ -235,9 +235,9 @@ void UI::ProcessInput() {
 	}
     else if (resp[0] == 'd' || resp[0] == 'D') {
         //row of colors in array, for each line, start farther down the list by one. wrap back to beggining of the list when done
-        byte colors[SCREEN_WIDTH];
-        for(int idx = 0; idx < SCREEN_WIDTH; idx++){
-            colors[idx] = (idx % 3 & 0x7) | ((idx / 3 % 2) & 0x7 << 3) | (idx*2 & 0x3 << 6);
+        byte colors[256];
+        for(int idx = 0; idx < 256; idx++){
+            colors[idx] = idx;
         }
 		
         unsigned long startTime = millis();
@@ -251,20 +251,7 @@ void UI::ProcessInput() {
         Serial.print(F("Draw diagonal line : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 		//needPrintMenu = true;
 	}
-    else if (resp[0] == 'c' || resp[0] == 'C') { //colors
-        byte colors[256];
-        int idx = 0;
-        for(int idx = 0; idx < 256; idx++)
-            colors[idx] = idx;
-        for(uint16_t line = 0; line < SCREEN_HEIGHT;line++){
-            programmer.WriteBytes(line << 8, colors + line, SCREEN_WIDTH - line); //write from 0 to end of colors            
-            programmer.WriteBytes((line << 8) + (SCREEN_WIDTH - line - 1), colors, line );
-            
-           //Serial.print("Drawing line on Y = "); Serial.println(line);
-          
-        }
-        
-    }
+    
     else if (resp[0] == 'b' || resp[0] == 'B') { //colors
         char buf[256];
         int blockWidth = SCREEN_WIDTH / 16;
@@ -278,7 +265,7 @@ void UI::ProcessInput() {
             
                 if(color < 0x0) break;
                 //draw pixels
-                sprintf(buf, "Drawing block at (%i,%i) with color %i", x,y, color);
+                //sprintf(buf, "Drawing block at (%i,%i) with color %i", x,y, color);
                 Serial.println(buf);
                 memset(colors,color, blockWidth);
                 for(int pxlY = y; pxlY < y + blockHeight; pxlY++){
@@ -291,7 +278,8 @@ void UI::ProcessInput() {
         
     }
     else if(resp[0] == 'i' || resp[0] == 'I'){
-        console.run();            
+        console.run();
+        needPrintMenu = true;
     }
     else needPrintMenu = true;
 }

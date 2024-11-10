@@ -8,6 +8,7 @@ size_t Console::write(uint8_t data)
         AdvanceCursor(true);
         return 1;
     }
+    if(data == 10) return 0; //skip LF, only process RC
     if(data ==0x8 ){ //backspace
         ReverseCursor();
         _printChar(0);
@@ -27,25 +28,30 @@ size_t Console::write(uint8_t data)
 
 void Console::run()
 {
-    byte buf[256];
-    byte * chr;
-    byte yOffset = 2;
-    byte xOffset = 2;
-    unsigned long lastEntered = millis();
-    Serial.println("Enter text to render. :q to quit");
+    //byte buf[256];
+    byte chr=0;
+    
+    Serial.println("Enter text to render. Ctrl+R to quit");
         
     while(true){
-        int bytesRead = Serial.readBytes(buf, 256);
+        chr = Serial.read();
+        if( chr == 255) continue;
+        Serial.print("Read "); Serial.println(chr);
+        
+        if(chr == 18)
+            break;
+            
+        write(chr);
+        //int bytesRead = Serial.readBytes(buf, 256);
         //while(!Serial.available() && lastEntered + 5000 > millis());
 
         //while(!Serial.available());
-        if(bytesRead <= 0) continue;
-        if(bytesRead >= 2 && buf[0] == ':' && buf[1] == 'q'){
-            break;
-        }
+        // if(bytesRead <= 0) continue;
+        // if(bytesRead >= 2 && buf[0] == ':' && buf[1] == 'q'){
+        //     break;
+        // }
         
-        write(buf, bytesRead);
-        lastEntered = millis();
+        // write(buf, bytesRead);
     }
 }
 
@@ -63,7 +69,7 @@ size_t Console::println(void)
 void Console::AdvanceCursor(bool nextLine)
 {
     //see if we can move over one pixel to the right
-    if (_cursorX + _charWidth * 2 < SCREEN_WIDTH && !nextLine)
+    if (_cursorX + _charWidth +1 < SCREEN_WIDTH && !nextLine)
     {
         _cursorX += _charWidth;
         return;
@@ -95,13 +101,17 @@ bool Console::ReverseCursor()
 
 void Console::_printChar(uint8_t chr)
 {
-    //clear 5x8 pixel section
-    for(int x = 0;x < 5;x ++){
-        byte column = CHARS[chr][x];
-        for(int y = 0; y < 8; y++){
-            auto isSet = (column & (1 << y)) > 0;
+    //clear 6x9 pixel section, draw 5x8 pixel char
+    for(uint8_t x = 0;x < PIXEL_WIDTH + 1;x ++){
+       
+        byte column = x < PIXEL_WIDTH ? CHARS[chr][x] : 0;
+        for(int y = 0; y < PIXEL_HEIGHT; y++){
+            byte isSet = (column & (1 << y)) > 0;
             programmer.WriteByte(((y + _cursorY) << 8) + x + _cursorX, isSet ? _color : 0);
         }
+        
+        programmer.WriteByte(((PIXEL_HEIGHT + _cursorY) << 8) + x + _cursorX, 0);
+        
     }
 }
 

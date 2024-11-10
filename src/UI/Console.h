@@ -4,8 +4,10 @@
 #include "SRAM/SRAM.h"
 #include "Programming/ProgramRom.h"
 
-#define SCREEN_WIDTH 160
+#define SCREEN_WIDTH 161
 #define SCREEN_HEIGHT 150
+#define PIXEL_WIDTH 5
+#define PIXEL_HEIGHT 8
 extern SRAM programmer;
 extern ProgramRom programRom;
 

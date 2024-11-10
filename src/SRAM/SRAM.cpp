@@ -261,7 +261,7 @@ bool SRAM::WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount, bool showD
         //tCW 70ns
 		delayMicroseconds(1);		
 		digitalWrite(PIN_WE, HIGH);
-		delayMicroseconds(10);
+		delayMicroseconds(1);
 		
 
 
