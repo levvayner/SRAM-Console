@@ -83,7 +83,7 @@ const byte CHARS[96][5] = {
     {0X4, 0X2, 0X1, 0X2, 0X4}, // ^
     {0X0, 0X8, 0X8, 0X8, 0X8}, // -
     {0X0, 0X6, 0XC, 0X0, 0X0}, // `
-    {0x64, 0x92, 0x92 ,0xA2, 0xFC}, // a
+    {0x60, 0x94, 0x94 ,0xF8, 0x00}, // a
     {0XFE, 0X90, 0X90, 0X90, 0X60}, // b
     {0X78, 0X84, 0X84, 0X84, 0X48}, // c
     {0X0, 0X60, 0X90, 0X90, 0XFE}, // d
@@ -94,7 +94,7 @@ const byte CHARS[96][5] = {
     {0X0, 0X0, 0XF4, 0X0, 0X0}, // i
     {0X40, 0X80, 0X80, 0X74, 0X0}, // j
     {0XFC, 0X20, 0XD8, 0X0 ,0X0}, // k
-    {0X0, 0XFE, 0X0, 0X0, 0X0}, // l
+    {0X0,  0X0, 0XFE, 0X0, 0X0}, // l
     {0XFC, 0X4, 0XF8, 0X4, 0XF8}, // m
     {0XFC, 0X8, 0X4, 0X4, 0XF8}, // n
     {0X78, 0X84, 0X84, 0X78, 0X0}, // o
@@ -108,7 +108,7 @@ const byte CHARS[96][5] = {
     {0X78, 0X80, 0X78, 0X80, 0X78}, // w
     {0X84, 0X48, 0X30, 0X48, 0X84}, // x
     {0X86,0X68, 0X30, 0X8, 0X6}, // y
-    {0XC2, 0XA2, 0X92, 0X8A, 0X86}, // z
+    {0XC4, 0XA4, 0X94, 0X8C, 0X0}, // z
     //MORE SYMBOLS
     {0X18,0X7E,0X81,0X81,0X0}, // {
     {0X0,0X0, 0X7E, 0X0, 0X0}, // |
@@ -121,6 +121,8 @@ const byte CHARS[96][5] = {
 class Console : Print{
 
     public:
+
+    void run();
 
     size_t write(uint8_t data);
     size_t write(const char *str) {
@@ -158,7 +160,8 @@ class Console : Print{
     size_t println(void);
 
     protected: 
-    void AdvanceCursor();
+    void AdvanceCursor( bool nextLine = false);
+    bool ReverseCursor ();
 
     private:
 
@@ -166,7 +169,10 @@ class Console : Print{
     byte _cursorY = 0;
     byte _charWidth = 6;
     byte _charHeight = 9;
+
+    byte _color = 240;
     
+    void _printChar(uint8_t chr);
 };
 
 #endif

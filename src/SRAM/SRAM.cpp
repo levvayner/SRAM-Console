@@ -238,10 +238,8 @@ uint8_t SRAM::WriteBytes(uint16_t addr, uint8_t *data, uint16_t length)
             digitalWrite(PIN_WE, LOW);
             delayMicroseconds(1);		
             digitalWrite(PIN_WE, HIGH);
-            delayMicroseconds(1);
             idx++;
             addr++;
-            delayMicroseconds(1);
             
         } ;
 

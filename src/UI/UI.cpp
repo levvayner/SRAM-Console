@@ -202,7 +202,7 @@ void UI::ProcessInput() {
         unsigned long startTime = millis();
         for(uint16_t line = 0; line < SCREEN_HEIGHT;line++){
             color = (line & 0x03) | (line *2 & 0x03) << 3 | (line%6 << 2);
-            Serial.print("Drawing line on Y = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
+            //Serial.print("Drawing line on Y = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
             //memset(rowBytes,0,5);
             memset(rowBytes, color, SCREEN_WIDTH);
             programmer.WriteBytes(line<< 8, rowBytes,SCREEN_WIDTH);
@@ -215,7 +215,7 @@ void UI::ProcessInput() {
             //Serial.println();
             //delay(10);
         }
-        Serial.print(F("Draw lne : Done in ")); Serial.print((millis() - startTime)/1000);Serial.println(" seconds.");
+        Serial.print(F("Draw lne : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 		//needPrintMenu = true;
 	}
     else if (resp[0] == 'v' || resp[0] == 'V') {
@@ -224,39 +224,75 @@ void UI::ProcessInput() {
         unsigned long startTime = millis();
         for(uint16_t line = 0; line < SCREEN_WIDTH;line++){
             color = (line & 0x03) | (line *2 & 0x03) << 3 | (line%6 << 2);
-            Serial.print("Drawing line on X = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
+            //Serial.print("Drawing line on X = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
             memset(colBytes, color, SCREEN_WIDTH);
             for(int y = 0; y < SCREEN_HEIGHT; y++){
                 programmer.WriteByte((y << 8) + line, colBytes[y]);
             }
         }
-        Serial.print(F("Draw lne : Done in ")); Serial.print((millis() - startTime)/1000);Serial.println(" seconds.");
+        Serial.print(F("Draw lne : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 		//needPrintMenu = true;
 	}
-    else if(resp[0] == 'i' || resp[0] == 'I'){
-        char input = ' ';
-        byte * chr;
-        byte yOffset = 2;
-        byte xOffset = 2;
-        unsigned long lastEntered = millis();
-        while(input!= 'q'){
-            Serial.println("Enter number to draw");
-            input = Serial.read();
-            while(!Serial.available() && lastEntered + 5000 > millis());
-
-            if(!Serial.available()){
-                Serial.println("No input detected. Quitting.");
-                break;
-            }
-            if(input == 0 || input - 32 < 0 || (input - 32) > sizeof(CHARS) / sizeof(CHARS[0])){
-                Serial.print("Invalid Entry: "); Serial.println(input - 32);
-                continue;
-            }
-            console.write((uint8_t)(input - 32));
-            lastEntered = millis();
+    else if (resp[0] == 'd' || resp[0] == 'D') {
+        //row of colors in array, for each line, start farther down the list by one. wrap back to beggining of the list when done
+        byte colors[SCREEN_WIDTH];
+        for(int idx = 0; idx < SCREEN_WIDTH; idx++){
+            colors[idx] = (idx % 3 & 0x7) | ((idx / 3 % 2) & 0x7 << 3) | (idx*2 & 0x3 << 6);
         }
+		
+        unsigned long startTime = millis();
+        for(uint16_t line = 0; line < SCREEN_HEIGHT;line++){
+            programmer.WriteBytes(line << 8, colors + line, SCREEN_WIDTH - line); //write from 0 to end of colors            
+            programmer.WriteBytes((line << 8) + (SCREEN_WIDTH - line - 1), colors, line );
             
+           //Serial.print("Drawing line on Y = "); Serial.println(line);
+          
+        }
+        Serial.print(F("Draw diagonal line : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
+		//needPrintMenu = true;
+	}
+    else if (resp[0] == 'c' || resp[0] == 'C') { //colors
+        byte colors[256];
+        int idx = 0;
+        for(int idx = 0; idx < 256; idx++)
+            colors[idx] = idx;
+        for(uint16_t line = 0; line < SCREEN_HEIGHT;line++){
+            programmer.WriteBytes(line << 8, colors + line, SCREEN_WIDTH - line); //write from 0 to end of colors            
+            programmer.WriteBytes((line << 8) + (SCREEN_WIDTH - line - 1), colors, line );
+            
+           //Serial.print("Drawing line on Y = "); Serial.println(line);
+          
+        }
+        
     }
-    needPrintMenu = true;
+    else if (resp[0] == 'b' || resp[0] == 'B') { //colors
+        char buf[256];
+        int blockWidth = SCREEN_WIDTH / 16;
+        int blockHeight = SCREEN_HEIGHT / 16;
+        //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
+        int color = 0xFF;
+        byte colors[blockWidth];
+            
+            for(int x = 0; x < SCREEN_WIDTH; x+= blockWidth){
+                for(int y=0;y < SCREEN_HEIGHT; y+= blockHeight){ 
+            
+                if(color < 0x0) break;
+                //draw pixels
+                sprintf(buf, "Drawing block at (%i,%i) with color %i", x,y, color);
+                Serial.println(buf);
+                memset(colors,color, blockWidth);
+                for(int pxlY = y; pxlY < y + blockHeight; pxlY++){
+                    programmer.WriteBytes((pxlY << 8 ) + x, colors, blockWidth);
+                }
+                color--;
+            }
+        }
+           
+        
+    }
+    else if(resp[0] == 'i' || resp[0] == 'I'){
+        console.run();            
+    }
+    else needPrintMenu = true;
 }
 
