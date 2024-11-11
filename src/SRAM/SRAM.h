@@ -38,6 +38,8 @@ private:
 	uint16_t counter = 0;
 	uint16_t _retries = 0;
 
+protected:
+
 	void SetAddress(uint16_t addr);
 	void SetDataLines(uint8_t data);
 

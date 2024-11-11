@@ -3,7 +3,11 @@
 
 size_t Console::write(uint8_t data)
 {
-    //Serial.println(data,HEX);
+    write(data, true);
+}
+
+size_t Console::write(uint8_t data, Color color, bool clearBackround)
+{
     if(data == 13){
         AdvanceCursor(true);
         return 1;
@@ -14,15 +18,18 @@ size_t Console::write(uint8_t data)
         _printChar(0);
         return -1;
     }
+    
     int d = data - 32;
+    byte savedColor = _color;
+    _color = color.ToByte();
     if(d < 0 || d > sizeof(CHARS) / sizeof(CHARS[0])){
         //print space
         d = 0;
     }
    
-    _printChar(d);    
+    _printChar(d,clearBackround);    
     AdvanceCursor();
-    
+    _color = savedColor;
     return 1;
 }
 
@@ -32,6 +39,10 @@ void Console::run()
     byte chr=0;
     
     Serial.println("Enter text to render. Ctrl+R to quit");
+    //DRAW BOTTOM SECTION
+    DrawStatusBar();
+    _cursorX = 0;
+    _cursorY = 0;
         
     while(true){
         chr = Serial.read();
@@ -42,18 +53,10 @@ void Console::run()
             break;
             
         write(chr);
-        //int bytesRead = Serial.readBytes(buf, 256);
-        //while(!Serial.available() && lastEntered + 5000 > millis());
-
-        //while(!Serial.available());
-        // if(bytesRead <= 0) continue;
-        // if(bytesRead >= 2 && buf[0] == ':' && buf[1] == 'q'){
-        //     break;
-        // }
-        
-        // write(buf, bytesRead);
     }
 }
+
+
 
 size_t Console::write(const uint8_t *buffer, size_t size)
 {
@@ -99,7 +102,14 @@ bool Console::ReverseCursor()
     return true;
 }
 
-void Console::_printChar(uint8_t chr)
+/// @brief status bar is one row high with top and bottom border (10px)
+void Console::DrawStatusBar()
+{
+
+    
+}
+
+void Console::_printChar(uint8_t chr, bool clearBackground)
 {
     //clear 6x9 pixel section, draw 5x8 pixel char
     for(uint8_t x = 0;x < PIXEL_WIDTH + 1;x ++){
@@ -107,6 +117,7 @@ void Console::_printChar(uint8_t chr)
         byte column = x < PIXEL_WIDTH ? CHARS[chr][x] : 0;
         for(int y = 0; y < PIXEL_HEIGHT; y++){
             byte isSet = (column & (1 << y)) > 0;
+            if(!isSet && !clearBackground) continue;
             programmer.WriteByte(((y + _cursorY) << 8) + x + _cursorX, isSet ? _color : 0);
         }
         

@@ -1,13 +1,12 @@
 #ifndef _CONSOLE_H
 #define _CONSOLE_H
 #include "Arduino.h"
+#include "Color.h"
 #include "SRAM/SRAM.h"
+#include "SRAM/VRAM.h"
 #include "Programming/ProgramRom.h"
 
-#define SCREEN_WIDTH 161
-#define SCREEN_HEIGHT 150
-#define PIXEL_WIDTH 5
-#define PIXEL_HEIGHT 8
+
 extern SRAM programmer;
 extern ProgramRom programRom;
 
@@ -125,7 +124,7 @@ class Console : Print{
     public:
 
     void run();
-
+    size_t write(uint8_t data, Color color, bool clearBackround = true);
     size_t write(uint8_t data);
     size_t write(const char *str) {
       if (str == NULL) return 0;
@@ -160,10 +159,13 @@ class Console : Print{
     size_t println(double, int = 2);
     size_t println(const Printable&);
     size_t println(void);
+    inline void SetPosition(int x, int y){ _cursorX = x; _cursorY = y; }
 
     protected: 
     void AdvanceCursor( bool nextLine = false);
+    
     bool ReverseCursor ();
+    void DrawStatusBar();
 
     private:
 
@@ -174,7 +176,7 @@ class Console : Print{
 
     byte _color = 240;
     
-    void _printChar(uint8_t chr);
+    void _printChar(uint8_t chr,bool clearBackground = true);
 };
 
 #endif

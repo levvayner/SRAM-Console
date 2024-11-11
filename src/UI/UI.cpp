@@ -253,24 +253,31 @@ void UI::ProcessInput() {
 	}
     
     else if (resp[0] == 'b' || resp[0] == 'B') { //colors
-        char buf[256];
+        char buf[3];
         int blockWidth = SCREEN_WIDTH / 16;
         int blockHeight = SCREEN_HEIGHT / 16;
         //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
         int color = 0xFF;
         byte colors[blockWidth];
             
-            for(int x = 0; x < SCREEN_WIDTH; x+= blockWidth){
-                for(int y=0;y < SCREEN_HEIGHT; y+= blockHeight){ 
-            
+        for(int x = 0; x < SCREEN_WIDTH; x+= blockWidth){
+            for(int y=0;y < SCREEN_HEIGHT; y+= blockHeight){ 
+                memset(buf,0,3);
                 if(color < 0x0) break;
-                //draw pixels
-                //sprintf(buf, "Drawing block at (%i,%i) with color %i", x,y, color);
-                Serial.println(buf);
+                
                 memset(colors,color, blockWidth);
                 for(int pxlY = y; pxlY < y + blockHeight; pxlY++){
                     programmer.WriteBytes((pxlY << 8 ) + x, colors, blockWidth);
                 }
+                console.SetPosition(x,y);
+                //hundreds
+                if(color >= 200) console.write('2',Color::WHITE,false);
+                else if (color >= 100) console.write('1',Color::WHITE,false);
+                //tens
+                if(((color%100 - (color % 10)))/10 > 0)
+                    console.write(((color%100 - (color % 10)))/10 + 48,Color::WHITE,false); 
+                //ones               
+                console.write((color % 10) + 48,Color::WHITE,false);
                 color--;
             }
         }

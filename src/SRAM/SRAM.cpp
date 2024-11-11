@@ -300,13 +300,13 @@ bool SRAM::WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount, bool showD
 		}
 		_retries++;
 		if (!done) {
-			Serial.print(F("Failed attempt #")); Serial.print(_retries); Serial.print(F(". Expected: ")); Serial.print(data, BIN); Serial.print(F(" but found: ")); Serial.println(readByte, BIN);
+			Serial.print("0x"); Serial.print(addr, HEX); Serial.print(F(" - Failed #")); Serial.print(_retries); Serial.print(F(". Expected: ")); Serial.print(data, BIN); Serial.print(F(" but found: ")); Serial.println(readByte, BIN);
 			
 			if (RETRY_COUNT == _retries) {				
 				Serial.println("*****************************************");
 				Serial.println("Critical Error. Failed to write to chip!");
 				Serial.println("*****************************************");
-				break;
+				return false;
 			}
 		}
         
