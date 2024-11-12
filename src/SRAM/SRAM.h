@@ -3,7 +3,7 @@
 #include "Arduino.h"
 #include "Pins.h"
 
-#define SRAM_SIZE 64*1024 //we will use lower 16 bits for now /* 1024*1024*/
+#define SRAM_SIZE (unsigned long)(64lu*1024lu) //we will use lower 16 bits for now /* 1024*1024*/
 
 #define BUFFER_SIZE 256
 #define RETRY_COUNT 3
@@ -40,6 +40,9 @@ public:
 private:
 	uint16_t counter = 0;
 	uint16_t _retries = 0;
+    // uint8_t _portAddressLower = PORTA;
+    // uint8_t _portAddressUpper = PORTC;
+    // uint8_t _portData = PORTL;
 
 protected:
 

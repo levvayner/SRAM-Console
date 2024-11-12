@@ -48,7 +48,7 @@ void UI::DumpRAM() {
         blinkLED();
     }
     String addrSS = Serial.readString();
-    uint16_t addrS = addrSS.toInt();
+    unsigned long addrS = addrSS.toInt();
     Serial.print(": ");
     Serial.print(addrS);
     Serial.print(" / 0x");
@@ -60,19 +60,19 @@ void UI::DumpRAM() {
         blinkLED();
     }
     String addrES = Serial.readString();
-    uint16_t addrE = addrES.toInt();
+    unsigned long addrE = addrES.toInt();
 
     Serial.print(": ");
     Serial.print(addrE);
     Serial.print(" / 0x");
     Serial.println(addrE,HEX);
 
-    if(addrS < 0 || addrS > (uint16_t)SRAM_SIZE){
+    if(addrS < 0 || addrS > SRAM_SIZE){
         Serial.print("Start address "); Serial.print(addrS); Serial.println(" is invalid. Setting to 0");
         addrS = 0;
     }
     if(addrE < 0 || addrE < addrS || addrE > SRAM_SIZE){
-        Serial.print("End address "); Serial.print(addrE); Serial.println(" is invalid. Setting to "); Serial.println(SRAM_SIZE,DEC);
+        Serial.print("End address "); Serial.print(addrE); Serial.print(" is invalid. Setting to "); Serial.println(SRAM_SIZE,DEC);
         addrE = SRAM_SIZE;
     }
 
@@ -82,9 +82,9 @@ void UI::DumpRAM() {
     
     byte baseOffset = addrS%frameSize;
     //Serial.print("Base Offset: "); Serial.println(baseOffset);
-	for (long address = addrS - baseOffset; address < addrE; address+=256) {
+	for (uint16_t address = addrS - baseOffset; address < addrE; address+=256) {
         //Serial.print("Starting frame at address "); Serial.println(address,HEX);
-		for (int base = address; base <= address + 256 && base <= addrE; base += frameSize) {
+		for (uint16_t base = address; base <= address + 256 && base <= addrE; base += frameSize) {
 			byte data;
             char buf[80];       
             sprintf(buf, "%06x: ", base);     
@@ -106,6 +106,7 @@ void UI::DumpRAM() {
 		}
 		Serial.println();
 	}
+    Serial.print("Done dumping ram");
 }
 #define BUFFER_SIZE 256
 void UI::EraseRAM()
