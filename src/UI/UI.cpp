@@ -259,13 +259,13 @@ void UI::ProcessInput() {
     
     else if (resp[0] == 'b' || resp[0] == 'B') { //colors
         int blockWidth = floor(SCREEN_WIDTH / 16) + 1; //rather push off screen a bit
-        int blockHeight = floor((SCREEN_HEIGHT - 10) / 16);
+        int blockHeight = floor((SCREEN_HEIGHT - 20) / 16);
         //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
         int color = 0xFF;
         byte colors[blockWidth];
         unsigned long  startTime = millis();
         for(int x = 1; x < SCREEN_WIDTH; x+= blockWidth){
-            for(int y=1;y < SCREEN_HEIGHT - 10; y+= blockHeight){ 
+            for(int y=1;y < SCREEN_HEIGHT - 20; y+= blockHeight){ 
                 
                 if(color < 0x0) break;
                 
@@ -299,7 +299,13 @@ void UI::ProcessInput() {
         //     }
         // }
         // Serial.print(F("Block labels : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
-        console.SetPosition(3, SCREEN_HEIGHT - 9);
+        console.SetPosition(3, SCREEN_HEIGHT - 9, false);
+        console.write("8 ", 2,Color::RED, true);
+        console.write("b", 1,Color::GREEN, true);
+        console.write("i", 1,Color::GOLD, true);
+        console.write("t", 1,Color::BLUE, true);
+
+        console.SetPosition(70, SCREEN_HEIGHT - 9, false);
         console.write("256 Available Colors", 20,Color::WHITE, true);
            
         

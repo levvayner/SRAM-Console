@@ -167,7 +167,7 @@ class Console : Print{
 
     inline void clear(){ programmer.EraseRam();}
 
-    inline void SetPosition(int x, int y){ _cursorX = x; _cursorY = y; _drawCursorPosition();}
+    inline void SetPosition(int x, int y, bool drawPosition = true){ _cursorX = x; _cursorY = y; if(drawPosition) {_drawCursorPosition();}}
 
     protected: 
     void AdvanceCursor( bool nextLine = false);
