@@ -8,7 +8,7 @@ size_t Console::write(uint8_t data)
 
 size_t Console::write(uint8_t data, Color color, bool clearBackround)
 {
-    //Serial.print("Console: Writing data: 0x"); Serial.println(data, HEX);
+    Serial.print("Console: Writing data: 0x"); Serial.println(data, HEX);
     if(data == 13){
         AdvanceCursor(true);
         return 1;

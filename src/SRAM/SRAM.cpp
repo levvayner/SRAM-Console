@@ -7,6 +7,7 @@ extern UI ui;
 
 SRAM::SRAM()
 {
+<<<<<<< HEAD
     /*
     //address is A port, pins 10-17 and D port 0-7
     //set address pins to gpio
@@ -21,6 +22,8 @@ SRAM::SRAM()
     PIOD->PIO_PER |=  0xFF;         // lowest 8 bits
     */
 
+=======
+>>>>>>> ae0a6e3 (resolved writing issues in code)
     pinMode(PIN_ADDR0, OUTPUT);
 	pinMode(PIN_ADDR1, OUTPUT);
 	pinMode(PIN_ADDR2, OUTPUT);
@@ -63,10 +66,15 @@ void SRAM::DeviceOff() {
 	pinMode(PIN_DATA7, INPUT);
 
 
+<<<<<<< HEAD
     #ifdef PIN_CE
 	digitalWrite(PIN_CE, LOW);
     #endif
     ramState = dsOff;	
+=======
+	ramState = dsOff;
+	//delayMicroseconds(10);
+>>>>>>> ae0a6e3 (resolved writing issues in code)
 }
 
 void SRAM::DeviceOutput() {
@@ -264,6 +272,10 @@ bool SRAM::WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount, bool showD
         SetAddress(addr);
 		SetDataLines(data);
 		//toggle WE low for 100ns - 1000ns
+<<<<<<< HEAD
+=======
+		delayMicroseconds(1); //give 1us for setup time
+>>>>>>> ae0a6e3 (resolved writing issues in code)
 		digitalWrite(PIN_WE, HIGH);
         //tCW 70ns
 		delayMicroseconds(1);		

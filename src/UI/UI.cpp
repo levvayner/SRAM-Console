@@ -34,6 +34,9 @@ void UI::PrintMenu() {
     Serial.println(F("Press b for color blocks"));
     Serial.println(F("Press v for vertical lines"));
     Serial.println(F("Press l for horizontal lines"));
+    Serial.println(F("Press b for color blocks"));
+    Serial.println(F("Press v for vertical lines"));
+    Serial.println(F("Press l for horizontal lines"));
 	Serial.println(F("Press i to enter interactive terminal"));
 	Serial.println(F("--------------------------------"));
 
@@ -109,12 +112,31 @@ void UI::DumpRAM() {
     Serial.print("Done dumping ram");
 }
 #define BUFFER_SIZE 256
+#define BUFFER_SIZE 256
 void UI::EraseRAM()
 {
 
     byte rowBytes[BUFFER_SIZE];
     memset(rowBytes, ERASE_BYTE,BUFFER_SIZE);
+    byte rowBytes[BUFFER_SIZE];
+    memset(rowBytes, ERASE_BYTE,BUFFER_SIZE);
     unsigned long startTime = millis();
+	Serial.print(F("Erasing RAM.."));
+    
+    for(uint16_t line = 0; line < SCREEN_HEIGHT + 10;line++){
+        
+        programmer.WriteBytes(line<< 8, rowBytes,BUFFER_SIZE);
+    }
+
+	// for (int i = 0; i < SRAM_SIZE; i+= BUFFER_SIZE) {
+	// 	programmer.WriteBytes(i, rowBytes, BUFFER_SIZE);
+	// 	if (i / marker >= nextPercent)
+	// 	{
+	// 		Serial.print(i / marker); Serial.print(F("0%.. "));
+	// 		nextPercent++;
+	// 	}
+		
+	// }
 	Serial.print(F("Erasing RAM.."));
     
     for(uint16_t line = 0; line < SCREEN_HEIGHT + 10;line++){
@@ -223,6 +245,7 @@ void UI::ProcessInput() {
     else if (resp[0] == 'v' || resp[0] == 'V') {
 		byte colBytes[max(SCREEN_HEIGHT, SCREEN_WIDTH)];
         byte color = 1;
+        byte color = 1;
         unsigned long startTime = millis();
         for(uint16_t line = 0; line < SCREEN_WIDTH;line++){   
             for(int div = 0; div < 8; div++){
@@ -235,7 +258,19 @@ void UI::ProcessInput() {
             }         
             color++;
            
+        for(uint16_t line = 0; line < SCREEN_WIDTH;line++){   
+            for(int div = 0; div < 8; div++){
+                //Serial.print("Drawing line on X = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
+                memset(colBytes, color, SCREEN_WIDTH);
+                for(int y = (SCREEN_HEIGHT / 8) * div; y < (SCREEN_HEIGHT / 8) * (div + 1); y++){
+                    programmer.WriteByte((y << 8) + line, colBytes[y]);
+                }
+                color+=2;
+            }         
+            color++;
+           
         }
+        Serial.print(F("Draw vertical lines : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
         Serial.print(F("Draw vertical lines : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 		//needPrintMenu = true;
 	}
@@ -285,15 +320,31 @@ void UI::ProcessInput() {
                 // console.write((color % 10) + 48,Color::WHITE,false);
                 color--;
                 if(color == 0) break;
+                    programmer.WriteBytes((pxlY << 8 ) + x, colors, blockWidth);
+                }
+                // console.SetPosition(x,y);
+                // //hundreds
+                // if(color >= 200) console.write('2',Color::WHITE,false);
+                // else if (color >= 100) console.write('1',Color::WHITE,false);
+                // //tens
+                // if(((color%100 - (color % 10)))/10 > 0)
+                //     console.write(((color%100 - (color % 10)))/10 + 48,Color::WHITE,false); 
+                // //ones               
+                // console.write((color % 10) + 48,Color::WHITE,false);
+                color--;
+                if(color == 0) break;
             }
         }
         Serial.print(F("Blocks : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 
         // startTime = millis();
         // color = 255;
+        // color = 255;
         // for(int x = 0; x < blockWidth * 16; x+= blockWidth){
         //     for(int y=0;y < blockHeight * 16; y+= blockHeight){ 
         //         console.SetPosition(x,y);
+        //         sprintf(buf,"%i", color);                
+        //         console.write(buf, strlen(buf), Color::WHITE,false);
         //         sprintf(buf,"%i", color);                
         //         console.write(buf, strlen(buf), Color::WHITE,false);
         //          color--;
@@ -310,6 +361,36 @@ void UI::ProcessInput() {
         console.write("256 Available Colors", 20,Color::WHITE, true);
            
         
+    }
+    else if (resp[0] == 'g' || resp[0] == 'G') { //graphics
+        int numOfObjects = 100;
+        graphics.clear();
+
+        Serial.println("Testing drawing circles");
+        
+        unsigned long startTime = millis();
+        for(int idx = 0; idx < numOfObjects; idx++){
+            graphics.drawCircle(random(5,SCREEN_WIDTH - 10), random(5, SCREEN_HEIGHT - 10), random(1,140),random(0,255));
+        }
+        Serial.print("Drawing circles took "); Serial.print(millis() - startTime); Serial.println(" ms");
+
+        graphics.clear();
+
+        Serial.println("Testing filling circles");
+        startTime = millis();
+        for(int idx = 0; idx < numOfObjects; idx++){
+            graphics.fillCircle(random(5,SCREEN_WIDTH - 10), random(5, SCREEN_HEIGHT - 10), random(5,70),random(0,255));
+        }
+        Serial.print("Filling circles took "); Serial.print(millis() - startTime); Serial.println(" ms");
+
+        graphics.clear();
+
+        Serial.println("Testing drawing rectangles");
+        startTime = millis();
+        for(int idx = 0; idx < numOfObjects; idx++){
+            graphics.drawRect(random(5,SCREEN_WIDTH - 10), random(5, SCREEN_HEIGHT - 10), random(1,140),random(0,70),random(0,255));
+        }
+        Serial.print("Drawing rectangles took "); Serial.print(millis() - startTime); Serial.println(" ms");
     }
     else if (resp[0] == 'g' || resp[0] == 'G') { //graphics
         int numOfObjects = 100;
