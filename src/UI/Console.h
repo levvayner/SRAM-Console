@@ -138,7 +138,7 @@ class Console : Print{
     }
 
     //virtual size_t write(const uint8_t *buffer, size_t size, Color color);
-    size_t write(const char *buffer, size_t size, Color color, bool clearBackground);
+    size_t write(const char *buffer, size_t size, Color color, bool clearBackground = true);
     
     size_t print(const __FlashStringHelper *);
     size_t print(const String &);
@@ -179,14 +179,20 @@ class Console : Print{
 
     byte _cursorX = 0;
     byte _cursorY = 0;
+    bool _cursorState = false;
+    bool _cursorVisible = true;
+    unsigned long _lastCursorChange = 0;
+
     byte _charHeight = 9;
 
     byte _color = 240;
     bool _consoleRunning = false;
     
+    
     void _printChar(uint8_t chr, byte charX, byte charY, bool clearBackground = true);
     void _printChars(const char *data, Color color, byte charX, byte charY, bool clearBackground = true);
     void _drawCursorPosition();
+    void _drawCursor();
 };
 
 #endif

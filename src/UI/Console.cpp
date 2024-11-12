@@ -8,17 +8,24 @@ size_t Console::write(uint8_t data)
 
 size_t Console::write(uint8_t data, Color color, bool clearBackround)
 {
-    //Serial.print("Console: Writing data: 0x"); Serial.println(data, HEX);
+    Serial.print("Console: Writing data: 0x"); Serial.println(data, HEX);
     if(data == 13){
         AdvanceCursor(true);
         return 1;
     }
     if(data == 10) return 0; //skip LF, only process RC
     if(data ==0x8 ){ //backspace
+        _printChar(0, _cursorX, _cursorY); // get rid of cursor
         ReverseCursor();
         _printChar(0, _cursorX, _cursorY);
         return -1;
     }
+    // if(data == 54){
+    //     AdvanceCursor();
+    // }
+    // if(data == 55){
+    //     ReverseCursor();
+    // }
     
     int d = data - 32;
     byte savedColor = _color;
@@ -48,14 +55,24 @@ void Console::run()
    
         
     while(true){
-        chr = Serial.read();
-        if( chr == 255) continue;
-        //Serial.print("Read "); Serial.println(chr);
-        
-        if(chr == 18)
-            break;
+        if(Serial.available()){
+            chr = Serial.read();
+            if( chr == 255) continue;
+            //Serial.print("Read "); Serial.println(chr);
             
-        write(chr);
+            if(chr == 18)
+                break;
+                
+            write(chr);
+        }
+
+        if(_cursorVisible){
+            if(millis() - _lastCursorChange > 1200){
+                _lastCursorChange = millis();
+                _cursorState = !_cursorState;
+                _drawCursor();
+            }
+        }
     }
     _consoleRunning = false;
 }
@@ -153,6 +170,12 @@ void Console::_drawCursorPosition(){
     sprintf(buf,"%i, %i", _cursorX, _cursorY);
     //Serial.print("Set cursor to "); Serial.println(buf);
 
+}
+
+void Console::_drawCursor()
+{
+    //ifnot visible, hide, otherwise if visible show, else hide
+    graphics.drawLine(_cursorX, _cursorY + CHAR_HEIGHT, _cursorX + 6, _cursorY + CHAR_HEIGHT, (_cursorVisible && _cursorState) ? Color::WHITE : Color::BLACK);
 }
 
 void Console::_printChar(uint8_t chr, byte charX, byte charY, bool clearBackground)

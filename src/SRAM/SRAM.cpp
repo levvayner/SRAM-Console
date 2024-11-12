@@ -5,22 +5,22 @@ extern UI ui;
 
 SRAM::SRAM()
 {
-    pinMode(PIN_ADDR0, INPUT);
-	pinMode(PIN_ADDR1, INPUT);
-	pinMode(PIN_ADDR2, INPUT);
-	pinMode(PIN_ADDR3, INPUT);
-	pinMode(PIN_ADDR4, INPUT);
-	pinMode(PIN_ADDR5, INPUT);
-	pinMode(PIN_ADDR6, INPUT);
-	pinMode(PIN_ADDR7, INPUT);
-	pinMode(PIN_ADDR8, INPUT);
-	pinMode(PIN_ADDR9, INPUT);
-	pinMode(PIN_ADDR10, INPUT);
-	pinMode(PIN_ADDR11, INPUT);
-	pinMode(PIN_ADDR12, INPUT);
-	pinMode(PIN_ADDR13, INPUT);
-	pinMode(PIN_ADDR14, INPUT);
-    pinMode(PIN_ADDR15, INPUT);
+    pinMode(PIN_ADDR0, OUTPUT);
+	pinMode(PIN_ADDR1, OUTPUT);
+	pinMode(PIN_ADDR2, OUTPUT);
+	pinMode(PIN_ADDR3, OUTPUT);
+	pinMode(PIN_ADDR4, OUTPUT);
+	pinMode(PIN_ADDR5, OUTPUT);
+	pinMode(PIN_ADDR6, OUTPUT);
+	pinMode(PIN_ADDR7, OUTPUT);
+	pinMode(PIN_ADDR8, OUTPUT);
+	pinMode(PIN_ADDR9, OUTPUT);
+	pinMode(PIN_ADDR10, OUTPUT);
+	pinMode(PIN_ADDR11, OUTPUT);
+	pinMode(PIN_ADDR12, OUTPUT);
+	pinMode(PIN_ADDR13, OUTPUT);
+	pinMode(PIN_ADDR14, OUTPUT);
+    pinMode(PIN_ADDR15, OUTPUT);
 }
 
 
@@ -46,23 +46,6 @@ void SRAM::DeviceOff() {
 	pinMode(PIN_DATA5, INPUT);
 	pinMode(PIN_DATA6, INPUT);
 	pinMode(PIN_DATA7, INPUT);
-
-    pinMode(PIN_ADDR0, INPUT);
-	pinMode(PIN_ADDR1, INPUT);
-	pinMode(PIN_ADDR2, INPUT);
-	pinMode(PIN_ADDR3, INPUT);
-	pinMode(PIN_ADDR4, INPUT);
-	pinMode(PIN_ADDR5, INPUT);
-	pinMode(PIN_ADDR6, INPUT);
-	pinMode(PIN_ADDR7, INPUT);
-	pinMode(PIN_ADDR8, INPUT);
-	pinMode(PIN_ADDR9, INPUT);
-	pinMode(PIN_ADDR10, INPUT);
-	pinMode(PIN_ADDR11, INPUT);
-	pinMode(PIN_ADDR12, INPUT);
-	pinMode(PIN_ADDR13, INPUT);
-	pinMode(PIN_ADDR14, INPUT);
-    pinMode(PIN_ADDR15, INPUT);
 
 
 	ramState = dsOff;
@@ -94,22 +77,6 @@ void SRAM::DeviceOutput() {
         #endif
 	} //make sure chip is enabled
 	
-    pinMode(PIN_ADDR0, OUTPUT);
-	pinMode(PIN_ADDR1, OUTPUT);
-	pinMode(PIN_ADDR2, OUTPUT);
-	pinMode(PIN_ADDR3, OUTPUT);
-	pinMode(PIN_ADDR4, OUTPUT);
-	pinMode(PIN_ADDR5, OUTPUT);
-	pinMode(PIN_ADDR6, OUTPUT);
-	pinMode(PIN_ADDR7, OUTPUT);
-	pinMode(PIN_ADDR8, OUTPUT);
-	pinMode(PIN_ADDR9, OUTPUT);
-	pinMode(PIN_ADDR10, OUTPUT);
-	pinMode(PIN_ADDR11, OUTPUT);
-	pinMode(PIN_ADDR12, OUTPUT);
-	pinMode(PIN_ADDR13, OUTPUT);
-	pinMode(PIN_ADDR14, OUTPUT);
-    pinMode(PIN_ADDR15, OUTPUT);
 	
 	ramState = dsOutput; //update state
 
@@ -131,24 +98,6 @@ void SRAM::DeviceWrite() {
 	pinMode(PIN_DATA5, OUTPUT);
 	pinMode(PIN_DATA6, OUTPUT);
 	pinMode(PIN_DATA7, OUTPUT);
-
-    pinMode(PIN_ADDR0, OUTPUT);
-	pinMode(PIN_ADDR1, OUTPUT);
-	pinMode(PIN_ADDR2, OUTPUT);
-	pinMode(PIN_ADDR3, OUTPUT);
-	pinMode(PIN_ADDR4, OUTPUT);
-	pinMode(PIN_ADDR5, OUTPUT);
-	pinMode(PIN_ADDR6, OUTPUT);
-	pinMode(PIN_ADDR7, OUTPUT);
-	pinMode(PIN_ADDR8, OUTPUT);
-	pinMode(PIN_ADDR9, OUTPUT);
-	pinMode(PIN_ADDR10, OUTPUT);
-	pinMode(PIN_ADDR11, OUTPUT);
-	pinMode(PIN_ADDR12, OUTPUT);
-	pinMode(PIN_ADDR13, OUTPUT);
-	pinMode(PIN_ADDR14, OUTPUT);
-    pinMode(PIN_ADDR15, OUTPUT);
-
 	if (ramState == dsOff) {
         #ifdef PIN_CE
 		digitalWrite(PIN_CE, HIGH); 		
@@ -215,28 +164,26 @@ uint8_t SRAM::ReadByte(uint16_t addr) {
 }
 
 
-uint8_t SRAM::WriteBytes(uint16_t addr, uint8_t *data, uint16_t length)
+uint16_t SRAM::WriteBytes(uint16_t addr, uint8_t *data, uint16_t length)
 {
-    auto retryCount = 0, idx=0;
-    _retries = 0;
-	bool done = false;
-	//while (_retries <= retryCount && !done) {
-		DeviceWrite();
-        while(idx < length){
-            SetAddress(addr);
-            SetDataLines(data[idx]);
-            //toggle WE low for 100ns - 1000ns
-            //delayMicroseconds(1); //give 1us for setup time
-            digitalWrite(PIN_WE, LOW);
-            delayMicroseconds(1);		
-            digitalWrite(PIN_WE, HIGH);
-            idx++;
-            addr++;
-            //delayMicroseconds(1);		
-        } ;
-
-        DeviceOff();
-   // }
+    
+    uint16_t idx = 0;
+    DeviceWrite();
+    while(idx < length){
+        
+        SetAddress(addr);
+        SetDataLines(data[idx]);
+        //toggle WE low for 100ns - 1000ns
+        //give 1us for setup time
+        digitalWrite(PIN_WE, HIGH);
+        delayMicroseconds(1);		
+        digitalWrite(PIN_WE, LOW);
+        idx++;
+        addr++;       
+    } ;
+    DeviceOff();	
+    
+   
    return idx;
 }
 
@@ -259,10 +206,10 @@ bool SRAM::WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount, bool showD
 		SetDataLines(data);
 		//toggle WE low for 100ns - 1000ns
 		delayMicroseconds(1); //give 1us for setup time
-		digitalWrite(PIN_WE, LOW);
+		digitalWrite(PIN_WE, HIGH);
         //tCW 70ns
 		delayMicroseconds(1);		
-		digitalWrite(PIN_WE, HIGH);
+		digitalWrite(PIN_WE, LOW);
 		
 
 

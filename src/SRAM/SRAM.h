@@ -7,7 +7,7 @@
 
 #define BUFFER_SIZE 256
 #define RETRY_COUNT 3
-#define ERASE_BYTE 0x0 //value denoting an erased byte
+#define ERASE_BYTE 0 //value denoting an erased byte
 
 enum DeviceState {
 	dsOff = 0,
@@ -33,7 +33,7 @@ public:
 	// void WriteNextByte(uint8_t data);
 	bool WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount = RETRY_COUNT, bool showDebugData = true);
 	bool WriteShort(uint16_t addr, uint16_t data, bool showDebugData = true);
-    uint8_t WriteBytes(uint16_t addr, uint8_t* data, uint16_t length);
+    uint16_t WriteBytes(uint16_t addr, uint8_t* data, uint16_t length);
 
     void EraseRam();
 

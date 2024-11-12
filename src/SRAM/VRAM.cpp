@@ -123,7 +123,7 @@ bool VRAM::drawArc(int x, int y, int startAngle, int endAngle, int radius, byte 
     int i;
     double angle, radian;
 
-    for (i = startAngle; i <= endAngle; i+= 360 / SCREEN_HEIGHT) {
+    for (i = startAngle; i <= endAngle; i++) {
         radian = i * 3.14159 / 180;
         WriteByte((int)(y + radius * sin(radian)) << 8 | (byte)(x + (radius * cos(radian))), color);
     }
