@@ -1,11 +1,13 @@
 #include <Arduino.h>
 #include "SRAM/SRAM.h"
+#include "SRAM/VRAM.h"
 #include "UI/Console.h"
 #include "UI/UI.h"
 
 
 
 SRAM programmer = SRAM();
+VRAM graphics = VRAM();
 ProgramRom programRom = ProgramRom();
 Console console;
 UI ui = UI();
@@ -19,15 +21,18 @@ void setup() {
     #endif
 	pinMode(PIN_WE, OUTPUT);
 	//start with chip in neither read nor write.
-	programmer.ModeOff();
+	programmer.DeviceOff();
 
 	digitalWrite(PIN_LED, LOW);
 	Serial.println("");
 	Serial.println("Starting SRAM tool");
+    console.clear();
+    console.write("Welcome");
 }
 
 
 void loop() {
+    
     ui.PrintMenu();
 	delay(5);
 	if (Serial.available()) {

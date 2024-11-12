@@ -6,8 +6,10 @@
 #include "SRAM/VRAM.h"
 #include "Programming/ProgramRom.h"
 
+#define STATUS_BAR_HEIGHT 10
 
 extern SRAM programmer;
+extern VRAM graphics;
 extern ProgramRom programRom;
 
 
@@ -124,7 +126,7 @@ class Console : Print{
     public:
 
     void run();
-    size_t write(uint8_t data, Color color, bool clearBackround = true);
+    size_t write(uint8_t data, Color color, bool clearBackround = false);
     size_t write(uint8_t data);
     size_t write(const char *str) {
       if (str == NULL) return 0;
@@ -134,10 +136,13 @@ class Console : Print{
     size_t write(const char *buffer, size_t size) {
       return write((const uint8_t *)buffer, size);
     }
+
+    //virtual size_t write(const uint8_t *buffer, size_t size, Color color);
+    size_t write(const char *buffer, size_t size, Color color, bool clearBackground);
     
     size_t print(const __FlashStringHelper *);
     size_t print(const String &);
-    size_t print(const char[]);
+    size_t print(const char[]);    
     size_t print(char);
     size_t print(unsigned char, int = DEC);
     size_t print(int, int = DEC);
@@ -159,7 +164,10 @@ class Console : Print{
     size_t println(double, int = 2);
     size_t println(const Printable&);
     size_t println(void);
-    inline void SetPosition(int x, int y){ _cursorX = x; _cursorY = y; }
+
+    inline void clear(){ programmer.EraseRam();}
+
+    inline void SetPosition(int x, int y){ _cursorX = x; _cursorY = y; _drawCursorPosition();}
 
     protected: 
     void AdvanceCursor( bool nextLine = false);
@@ -171,12 +179,14 @@ class Console : Print{
 
     byte _cursorX = 0;
     byte _cursorY = 0;
-    byte _charWidth = 6;
     byte _charHeight = 9;
 
     byte _color = 240;
+    bool _consoleRunning = false;
     
-    void _printChar(uint8_t chr,bool clearBackground = true);
+    void _printChar(uint8_t chr, byte charX, byte charY, bool clearBackground = true);
+    void _printChars(const char *data, Color color, byte charX, byte charY, bool clearBackground = true);
+    void _drawCursorPosition();
 };
 
 #endif

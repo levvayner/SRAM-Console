@@ -5,8 +5,9 @@
 
 #define SRAM_SIZE 64*1024 //we will use lower 16 bits for now /* 1024*1024*/
 
-
+#define BUFFER_SIZE 256
 #define RETRY_COUNT 3
+#define ERASE_BYTE 0x0 //value denoting an erased byte
 
 enum DeviceState {
 	dsOff = 0,
@@ -33,6 +34,8 @@ public:
 	bool WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount = RETRY_COUNT, bool showDebugData = true);
 	bool WriteShort(uint16_t addr, uint16_t data, bool showDebugData = true);
     uint8_t WriteBytes(uint16_t addr, uint8_t* data, uint16_t length);
+
+    void EraseRam();
 
 private:
 	uint16_t counter = 0;

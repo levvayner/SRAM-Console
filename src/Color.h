@@ -20,14 +20,16 @@ class Color {
         return Color(red,green,blue);
     }
     const static uint8_t WHITE = 0xFF;
+    const static uint8_t GRAY = 0xDF;
     const static uint8_t BLACK = 0x0;
     const static uint8_t GREEN = 0x1 << 3;
     const static uint8_t BLUE = 0x1 << 6;
     const static uint8_t CYAN = 71;
     const static uint8_t YELLOW  = 63;
     const static uint8_t GOLD = 31;
-    const static uint8_t ORANGE = 15;
+    const static uint8_t ORANGE = 15;    
     const static uint8_t PEACH = 159;
+    const static uint8_t RED = 0x7;
     const static uint8_t TEAL = 248;
     const static uint8_t PURPLE = 198 ;
     const static uint8_t LIME = 60;

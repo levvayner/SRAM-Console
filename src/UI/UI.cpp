@@ -4,6 +4,7 @@
 
 UI::UI()
 {
+    
 }
 
 
@@ -31,7 +32,7 @@ void UI::PrintMenu() {
 	Serial.println(F("Press p to print data"));
 	Serial.println(F("Press s to store data"));
 	Serial.println(F("Press e to erase RAM"));
-	Serial.println(F("Press l to slow draw lines"));
+	Serial.println(F("Press i to enter interactive terminal"));
 	Serial.println(F("--------------------------------"));
 
 	needPrintMenu = false;
@@ -104,32 +105,14 @@ void UI::DumpRAM() {
 		Serial.println();
 	}
 }
-#define BUFFER_SIZE 256
+
 void UI::EraseRAM()
 {
 
-    size_t memSize = SCREEN_WIDTH * SCREEN_HEIGHT;
-    byte ERASE_BYTE = 0x0;
-    byte rowBytes[BUFFER_SIZE];
-    memset(rowBytes, ERASE_BYTE,BUFFER_SIZE);
-    unsigned long startTime = millis();
 	Serial.print(F("Erasing RAM.."));
-    
-    for(uint16_t line = 0; line < SCREEN_HEIGHT;line++){
-        
-        programmer.WriteBytes(line<< 8, rowBytes,BUFFER_SIZE);
-    }
-
-	// for (int i = 0; i < SRAM_SIZE; i+= BUFFER_SIZE) {
-	// 	programmer.WriteBytes(i, rowBytes, BUFFER_SIZE);
-	// 	if (i / marker >= nextPercent)
-	// 	{
-	// 		Serial.print(i / marker); Serial.print(F("0%.. "));
-	// 		nextPercent++;
-	// 	}
-		
-	// }
-	Serial.print(F(" : Done in ")); Serial.print((millis() - startTime)/1000);Serial.println(" seconds.");
+    unsigned long startTime = millis();
+    programmer.EraseRam();    
+	Serial.print(F(" : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 }
 
 void UI::ProcessInput() {
@@ -164,10 +147,10 @@ void UI::ProcessInput() {
 		String dataS = Serial.readString();
 		byte data = dataS.toInt();
         Serial.print(": "); Serial.println(data, DEC);
-
+        bool sucess = programmer.WriteByte(addr, data);
 #ifdef DEBUG
 
-		if (programmer.WriteByte(addr, data)) {
+		if (sucess) {
 			Serial.print("Sucess writing data: 0x"); Serial.print(data, HEX); Serial.print(" to address "); Serial.println(addr, BIN);
 		}
 		else {
@@ -254,33 +237,50 @@ void UI::ProcessInput() {
     
     else if (resp[0] == 'b' || resp[0] == 'B') { //colors
         char buf[3];
-        int blockWidth = SCREEN_WIDTH / 16;
-        int blockHeight = SCREEN_HEIGHT / 16;
+        int blockWidth = floor(SCREEN_WIDTH / 16);
+        int blockHeight = floor(SCREEN_HEIGHT / 16);
         //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
         int color = 0xFF;
         byte colors[blockWidth];
-            
-        for(int x = 0; x < SCREEN_WIDTH; x+= blockWidth){
-            for(int y=0;y < SCREEN_HEIGHT; y+= blockHeight){ 
+        unsigned long  startTime = millis();
+        byte pixels[(SCREEN_HEIGHT << 8) + SCREEN_WIDTH ];
+        memset(pixels,0,(SCREEN_HEIGHT << 8) + SCREEN_WIDTH);
+        for(int x = 0; x < blockWidth * 16; x+= blockWidth){
+            for(int y=0;y < blockHeight * 16; y+= blockHeight){ 
                 memset(buf,0,3);
                 if(color < 0x0) break;
                 
                 memset(colors,color, blockWidth);
                 for(int pxlY = y; pxlY < y + blockHeight; pxlY++){
-                    programmer.WriteBytes((pxlY << 8 ) + x, colors, blockWidth);
+                    memcpy(pixels + (pxlY << 8 ) + x, colors, blockWidth);                    
                 }
-                console.SetPosition(x,y);
-                //hundreds
-                if(color >= 200) console.write('2',Color::WHITE,false);
-                else if (color >= 100) console.write('1',Color::WHITE,false);
-                //tens
-                if(((color%100 - (color % 10)))/10 > 0)
-                    console.write(((color%100 - (color % 10)))/10 + 48,Color::WHITE,false); 
-                //ones               
-                console.write((color % 10) + 48,Color::WHITE,false);
-                color--;
+                
+                 color--;
             }
         }
+
+        for(int line = 0; line < SCREEN_HEIGHT;line++)
+            programmer.WriteBytes(line << 8 , pixels + (line << 8 ), 256);
+        Serial.print(F("Blocks : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
+
+        // startTime = millis();
+        // for(int x = 0; x < blockWidth * 16; x+= blockWidth){
+        //     for(int y=0;y < blockHeight * 16; y+= blockHeight){ 
+        //         console.SetPosition(x,y);
+        //         //hundreds
+        //         if(color >= 200) console.write('2',Color::WHITE,false);
+        //         else if (color >= 100) console.write('1',Color::WHITE,false);
+        //         //tens
+        //         if(((color%100 - (color % 10)))/10 > 0)
+        //             console.write(((color%100 - (color % 10)))/10 + 48,Color::WHITE,false); 
+        //         //ones               
+        //         console.write((color % 10) + 48,Color::WHITE,false);
+        //          color--;
+        //     }
+        // }
+        // Serial.print(F("Block labels : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
+        console.SetPosition(3, blockHeight*16);
+        console.write("256 Available Colors", 20,Color::WHITE,true);
            
         
     }

@@ -3,14 +3,39 @@
 #include "SRAM.h"
 #include "Color.h"
 
-#define SCREEN_WIDTH 161
-#define SCREEN_HEIGHT 150
-#define PIXEL_WIDTH 5
-#define PIXEL_HEIGHT 8
+#define SCREEN_WIDTH 200
+#define SCREEN_HEIGHT 120
+#define CHAR_WIDTH 5
+#define CHAR_HEIGHT 8
 
 struct Point{
     int x;
     int y;
+    Point(int x, int y){ this->x = x; this->y = y;}
+};
+
+struct Rectangle{
+    public:
+    int x1;
+    int x2;
+    int y1;
+    int y2;
+
+    int width(){ return abs(x2 - x1);}
+    int height(){ return abs(y2 - y1);}
+
+    Rectangle(Point p1, Point p2){
+        x1 = p1.x;
+        x2 = p2.x;
+        y1 = p1.y;
+        y2 = p2.y;
+    }
+    Rectangle( int x1, int y1, int x2, int y2){
+        this->x1 = x1;
+        this->x2 = x2;
+        this->y1 = y1;
+        this->y2 = y2;
+    }
 };
 
 
@@ -38,6 +63,11 @@ class VRAM : SRAM{
 
         bool drawArc(int x, int y, int startAngle, int endAngle, int radius, byte color = 0xFF);
         bool drawArc(int x, int y, int startAngle, int endAngle, int radius, Color color = Color::WHITE);
+
+        bool fillCircle(int x, int y, int radius, byte color = 0xFF);
+        bool fillCircle(int x, int y, int radius, Color color = Color::WHITE);
+
+        
 
         bool clear(int x1 = 0, int y1 = 0, int width = SCREEN_WIDTH, int height = SCREEN_HEIGHT){
             return fillRect(x1, y1, width, height, Color::BLACK);

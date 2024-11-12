@@ -35,7 +35,7 @@
 
 //control pins
 #define PIN_CE		52	//ACTIVE LOW	- pull down to use chip.
-#define PIN_WE		44	//ACTIVE LOW	- pull down for 100ns - 1000ns *AFTER* setting address and data. OE should be HIGH. CE should be HIGH.
+#define PIN_WE		46	//ACTIVE LOW	- pull down for 100ns - 1000ns *AFTER* setting address and data. OE should be HIGH. CE should be HIGH.
 #define PIN_OE		42	//ACTIVE LOW	- pull down *AFTER* setting address and data. WE should be HIGH. CE should be HIGH.
 #define PIN_LED		13
 #pragma endregion

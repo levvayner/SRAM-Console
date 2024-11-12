@@ -3,8 +3,8 @@
 #include "Arduino.h"
 
 
-//#define DEBUG	1
-#define VERIFY 1
+// #define DEBUG	1
+// #define VERIFY 1
 #include "Console.h"
 #include "Color.h"
 #include "SRAM/VRAM.h"
