@@ -20,16 +20,16 @@ public:
 	~SRAM();
 
 
-	void ModeOff();
-	void ModeOutput();
-	void ModeWrite();
+	void DeviceOff();
+	void DeviceOutput();
+	void DeviceWrite();
 	//MAX ADDR is 2048 with 11 address lines
 
 	//construct byte from data bits
 	uint8_t ReadByte(uint16_t addr);
 	
-	void WriteFirstByte(uint8_t data, uint16_t offsetAddress = 0);
-	void WriteNextByte(uint8_t data);
+	// void WriteFirstByte(uint8_t data, uint16_t offsetAddress = 0);
+	// void WriteNextByte(uint8_t data);
 	bool WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount = RETRY_COUNT, bool showDebugData = true);
 	bool WriteShort(uint16_t addr, uint16_t data, bool showDebugData = true);
     uint8_t WriteBytes(uint16_t addr, uint8_t* data, uint16_t length);
