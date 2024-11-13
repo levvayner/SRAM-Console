@@ -10,7 +10,22 @@ SRAM programmer = SRAM();
 VRAM graphics = VRAM();
 ProgramRom programRom = ProgramRom();
 Console console;
+USBHost usb;
+KeyboardController keyboard(usb);
 UI ui = UI();
+
+// This function intercepts key press
+void keyPressed() {
+    if(console.IsConsoleRunning())
+        console.processUSBKey();
+  Serial.print("Pressed:  ");
+}
+
+// This function intercepts key release
+void keyReleased() {
+  Serial.print("Released: ");
+}
+
 
 void setup() {
     Serial.begin(115200);

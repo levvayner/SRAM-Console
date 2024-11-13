@@ -14,12 +14,12 @@ size_t Console::write(uint8_t data, Color color, bool clearBackround)
         return 1;
     }
     if(data == 10) return 0; //skip LF, only process RC
-    if(data ==0x8 ){ //backspace
-        _printChar(0, _cursorX, _cursorY); // get rid of cursor
-        ReverseCursor();
-        _printChar(0, _cursorX, _cursorY);
-        return -1;
-    }
+    // if(data ==0x8 ){ //backspace
+    //     _printChar(0, _cursorX, _cursorY); // get rid of cursor
+    //     ReverseCursor();
+    //     _printChar(0, _cursorX, _cursorY);
+    //     return -1;
+    // }
     // if(data == 54){
     //     AdvanceCursor();
     // }
@@ -51,18 +51,107 @@ void Console::run()
     
     Serial.println("Enter text to render. Ctrl+R to quit");
     //DRAW BOTTOM SECTION
+    clear();
     DrawStatusBar();
    
-        
+    bool writable = true;
     while(true){
+        writable = true;
         if(Serial.available()){
             chr = Serial.read();
             if( chr == 255) continue;
-            //Serial.print("Read "); Serial.println(chr);
             
-            if(chr == 18)
+            Serial.print("Read 0x"); Serial.println(chr, HEX);
+            if(chr == 0x1B){
+                writable = false;
+                //escape key. If not directly followed by other chars, treat as escape
+                auto startTime = millis();
+                while(Serial.available() < 2 && millis() - startTime < 500);
+                if(!Serial.available())                
+                    continue;
+                
+                char nextChar = Serial.read();
+
+                //function keys
+                if(chr == 0x4F ){
+                    if(!Serial.available())  continue;
+                    nextChar = Serial.read();
+                    switch (nextChar)
+                    {
+                        case 0x50: //F1
+                        case 0x51: //F2
+                            break;
+                        // ...
+                    }
+                    Serial.println("Pressed Function key F"); Serial.print(chr - 0x49);
+                }
+                if(nextChar == 0x32 ){ //insert, should be followed by 7E
+                    if(Serial.available() && Serial.read() == 0x7E){
+                        //do whatever insert does
+                        Serial.println("Pressed insert");
+                    }
+                }
+                if(nextChar == 0x33 ){ //delete, should be followed by 7E
+                    if(Serial.available() && Serial.read() == 0x7E){
+                        
+                                Serial.println("Pressed delete");
+                    }
+                }
+
+                if(nextChar == 0x5B ){
+                    nextChar = Serial.read();
+                    switch (nextChar)
+                    {
+                        
+                            
+                        case 0x7E: //delete, should have been preceeded by 0x33
+
+                            break;
+                        case 0x41: //up arrow
+                            //Serial.println("Pressed up arrow");
+                            MoveCursorUp();
+                            break;   
+                        case 0x42: //down arrow
+                            //Serial.println("Pressed down arrow");
+                            MoveCursorDown();
+                            break;          
+                        case 0x43: //right arrow                    
+                            //Serial.println("Pressed right arrow");
+                            MoveCursorRight();
+                            break;
+                        case 0x44: //left arrow
+                            //Serial.println("Pressed left arrow");
+                            MoveCursorLeft();
+                            break;
+                        case 0x46: //end
+                            break;
+                        case 0x48: //home
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                if(nextChar == 0x65 ){
+                    Serial.print("Backspace char 1..");
+                    nextChar = Serial.read();
+                    if(nextChar == 0x8){ //backspace
+                        Serial.print("Backspace char 2..");
+                        _printChar(0, _cursorX, _cursorY); // get rid of cursor
+                        ReverseCursor();
+                        //_printChar(0, _cursorX, _cursorY);
+                    }
+                    Serial.println();
+                    continue;
+                }
+            }
+            
+            
+            if(chr == 18) //ctrl + r
                 break;
                 
+            if(!writable) continue;
+
             write(chr);
         }
 
@@ -76,6 +165,26 @@ void Console::run()
     }
     _consoleRunning = false;
 }
+
+void Console::processUSBKey()
+{
+    auto mods = keyboard.getModifiers();
+    if(mods != 0){
+        //process control keys
+    } else{
+        //regular keys
+    }
+    char keyVal = keyboard.getKey();
+
+    _processKey(keyVal);
+
+}
+
+void Console::_processKey(char keyVal){
+    Serial.print("Processing usb key: "); Serial.println(keyVal);
+    write(keyVal);
+}
+
 
 size_t Console::write(const char *buffer, size_t size, Color color, bool clearBackground){
     for(size_t idx = 0; idx < size; idx++)
@@ -148,6 +257,69 @@ void Console::DrawStatusBar()
     Serial.println(buf);
     
 }
+
+bool Console::MoveCursorUp()
+{
+    if(_cursorY < CHAR_HEIGHT + 1) return false;
+    //get rid of current
+    if(_cursorState){
+        _cursorState = false;
+        _drawCursor();
+    }
+
+    _cursorY -= _charHeight;
+    _cursorState = true;
+    _drawCursor();
+    _drawCursorPosition();
+    return true;
+}
+
+bool Console::MoveCursorDown()
+{
+    if(_cursorY >= SCREEN_HEIGHT - STATUS_BAR_HEIGHT - _charHeight - 2 ) return false; //with 2px padding
+    if(_cursorState){
+        _cursorState = false;
+        _drawCursor();
+    }
+
+    _cursorY += _charHeight;
+    _cursorState = true;
+    _drawCursor();
+    _drawCursorPosition();
+    return true;
+}
+
+bool Console::MoveCursorRight()
+{
+    if(_cursorX >= SCREEN_WIDTH - (CHAR_WIDTH + 1)) return false;
+    if(_cursorState){
+        _cursorState = false;
+        _drawCursor();
+    }
+
+    _cursorX += CHAR_WIDTH + 1;
+    _cursorState = true;
+    _drawCursor();
+    _drawCursorPosition();
+    return true;
+}
+
+bool Console::MoveCursorLeft()
+{
+    if(_cursorX < (CHAR_WIDTH + 1)) return false;
+    if(_cursorState){
+        _cursorState = false;
+        _drawCursor();
+    }
+
+    _cursorX -= (CHAR_WIDTH + 1);
+    _cursorState = true;
+    _drawCursor();
+    _drawCursorPosition();
+    return true;
+}
+
+
 
 void Console::_drawCursorPosition(){
     if(!_consoleRunning) return;

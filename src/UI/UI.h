@@ -1,7 +1,7 @@
 #ifndef _UI_H
 #define _UI_H
 #include "Arduino.h"
-
+#include "KeyboardController.h"
 
 // #define DEBUG	1
 // #define VERIFY 1
@@ -11,6 +11,16 @@
 extern SRAM programmer;
 extern ProgramRom programRom;
 extern Console console;
+
+// Initialize USB Controller
+extern USBHost usb;
+
+// Attach keyboard controller to USB
+extern KeyboardController keyboard;
+
+
+
+
 class UI
 {
 public:

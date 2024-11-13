@@ -121,11 +121,15 @@ bool VRAM::drawCircle(int x, int y, int radius, byte color)
 bool VRAM::drawArc(int x, int y, int startAngle, int endAngle, int radius, byte color)
 {
     int i;
-    double angle, radian;
+    double radian;
 
     for (i = startAngle; i <= endAngle; i++) {
         radian = i * 3.14159 / 180;
-        WriteByte((int)(y + radius * sin(radian)) << 8 | (byte)(x + (radius * cos(radian))), color);
+        auto yVal = (y + radius * sin(radian));
+        auto xVal = (x + (radius * cos(radian)));
+        if(xVal <= 0 || yVal <= 0 || xVal >= SCREEN_WIDTH || yVal >= SCREEN_HEIGHT)
+            continue; // do not render off-screen content
+        WriteByte((int) yVal << 8 | (byte)xVal, color);
     }
     return false;
 }

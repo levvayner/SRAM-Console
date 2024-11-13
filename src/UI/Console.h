@@ -5,13 +5,14 @@
 #include "SRAM/SRAM.h"
 #include "SRAM/VRAM.h"
 #include "Programming/ProgramRom.h"
+#include "KeyboardController.h"
 
 #define STATUS_BAR_HEIGHT 10
 
 extern SRAM programmer;
 extern VRAM graphics;
 extern ProgramRom programRom;
-
+extern KeyboardController keyboard;
 
 
 //ascii chars with offset of 32, starting with space
@@ -168,12 +169,23 @@ class Console : Print{
     inline void clear(){ programmer.EraseRam();}
 
     inline void SetPosition(int x, int y, bool drawPosition = true){ _cursorX = x; _cursorY = y; if(drawPosition) {_drawCursorPosition();}}
+    void processUSBKey(); //
+    inline bool IsConsoleRunning(){ return _consoleRunning;}
 
     protected: 
     void AdvanceCursor( bool nextLine = false);
     
     bool ReverseCursor ();
     void DrawStatusBar();
+
+    bool MoveCursorUp();
+    bool MoveCursorDown();
+    bool MoveCursorRight();
+    bool MoveCursorLeft();
+    
+    
+
+    
 
     private:
 
@@ -182,6 +194,7 @@ class Console : Print{
     bool _cursorState = false;
     bool _cursorVisible = true;
     unsigned long _lastCursorChange = 0;
+
 
     byte _charHeight = 9;
 
@@ -193,6 +206,8 @@ class Console : Print{
     void _printChars(const char *data, Color color, byte charX, byte charY, bool clearBackground = true);
     void _drawCursorPosition();
     void _drawCursor();
+
+    void _processKey(char keyVal);
 };
 
 #endif
