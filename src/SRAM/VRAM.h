@@ -3,10 +3,7 @@
 #include "SRAM.h"
 #include "Color.h"
 
-#define SCREEN_WIDTH 200
-#define SCREEN_HEIGHT 120
-#define CHAR_WIDTH 5
-#define CHAR_HEIGHT 8
+
 
 struct Point{
     int x;
@@ -39,9 +36,19 @@ struct Rectangle{
 };
 
 
-class VRAM : SRAM{
+struct VRAMSettings{
+    int screenWidth = 200;
+    int screenHeight = 120;
+    int charWidth = 6;
+    int charHeight = 9;
+};
 
+
+class VRAM : SRAM{
+    
     public:
+        VRAMSettings settings;
+
         bool drawPixel(int x, int y, byte color = 0xFF);
         bool drawPixel(int x, int y, Color color);
 
@@ -50,12 +57,17 @@ class VRAM : SRAM{
         bool drawLine(int x1, int y1, int x2, int y2, Color color = Color::WHITE);
         bool drawLine (Point start, Point end, Color color = Color::WHITE);
 
+        bool drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color = 0xFF);
+        bool drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color = Color::WHITE);
+
         bool drawRect(int x1, int y1, int width, int height, byte color = 0xFF);
         bool drawRect (Point topLeft, Point bottomRight, byte color = 0xFF);
         bool drawRect(int x1, int y1, int width, int height, Color color = Color::WHITE);
         bool drawRect (Point topLeft, Point bottomRight, Color color = Color::WHITE);
 
         bool fillRect(int x1, int y1, int width, int height, byte color = 0xFF);
+        bool fillRect(int x1, int y1, int width, int height,  Color color =Color::WHITE);
+        bool fillRect (Point topLeft, Point bottomRight, byte color = 0xFF);
         bool fillRect (Point topLeft, Point bottomRight, Color color =Color::WHITE);
 
         bool drawCircle(int x, int y, int radius, byte color = 0xFF);
@@ -69,9 +81,11 @@ class VRAM : SRAM{
 
         
 
-        bool clear(int x1 = 0, int y1 = 0, int width = SCREEN_WIDTH, int height = SCREEN_HEIGHT){
+        bool clear(int x1 = 0, int y1 = 0, int width = 800, int height = 600){
             return fillRect(x1, y1, width, height, Color::BLACK);
         }
+
+    
 
 };
 #endif

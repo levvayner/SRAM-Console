@@ -42,6 +42,9 @@ public:
 	void PrintOperations(uint8_t op);
 
 private:
+    template <typename TPort>
+    void _processInput(TPort port);
+private:
 	bool ledState = 0;
 	unsigned long lastToggle = 0;
 	unsigned long toggleDuration = 500;

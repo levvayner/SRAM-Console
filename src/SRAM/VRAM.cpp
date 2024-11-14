@@ -30,7 +30,6 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
     char buf[256];
 
     //sprintf(buf,"Drawing line from (%i,%i) to (%i, %i).\nSlope: %lf\n", x1, y1, x2, y2, slope);
-    Serial.println(buf);
     if(slope > 1 || slope < -1){
         double step = 1/slope;
         double xCoord = x1;
@@ -67,19 +66,42 @@ bool VRAM::drawLine(Point start, Point end, Color color)
     return drawLine(start.x, start.y, end.x, end.y, color.ToByte());
 }
 
+bool VRAM::drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color)
+{
+    return drawLine(x1,y1,x2,y2,color) && drawLine(x2,y2,x3,y3,color) && drawLine(x3, y3, x1, y1, color);
+}
+
+bool VRAM::drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color)
+{
+    return drawTriangle(x1, y1, x2, y2, x3, y3, color.ToByte());
+}
+
 bool VRAM::drawRect(int x1, int y1, int width, int height, byte color)
 {
+    //TODO: clip to screen
     //draw buffered top and bottom
-    byte buf[width];
-    memset(buf,color, width);
-    WriteBytes((y1 << 8) + x1, buf, width);
-    WriteBytes(((y1 + height) << 8) + x1, buf, width);
+    if(x1 > settings.screenWidth) return false;
+    if(y1 > settings.screenHeight) return false;
+    int clipWidth = width;
+    int clipHeight = height;
+    if(settings.screenWidth - (width + x1) < width) clipWidth = settings.screenWidth - x1;
+    if(settings.screenHeight - (y1 + height) < height) clipHeight = settings.screenHeight - y1; 
+    
+    //Serial.print("Set clip width to "); Serial.println(clipWidth);
+    byte buf[clipWidth];
+    memset(buf,color, clipWidth);
+    WriteBytes((y1 << 8) + x1, buf, clipWidth);
+    if(clipHeight == height)
+        WriteBytes(((y1 + height) << 8) + x1, buf, clipWidth);
 
     //draw pixeled left and right
-    for(int y=y1; y < y1 + height; y++){
+    for(byte y=y1; y < y1 + height; y++){
         WriteByte((y << 8) + x1, color);
-        WriteByte((y << 8) + x1 + width, color);
+        if(clipWidth == width)
+            WriteByte((y << 8) + x1 + width, color);
     }
+
+    return true;
 }
 
 bool VRAM::drawRect(Point topLeft, Point bottomRight, byte color)
@@ -107,6 +129,16 @@ bool VRAM::fillRect(int x1, int y1, int width, int height, byte color)
     }    
 }
 
+bool VRAM::fillRect(int x1, int y1, int width, int height, Color color)
+{
+    return fillRect(x1,y1,width, height, color.ToByte());
+}
+
+bool VRAM::fillRect(Point topLeft, Point bottomRight, byte color)
+{
+    return fillRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color);
+}
+
 bool VRAM::fillRect(Point topLeft, Point bottomRight, Color color)
 {
     return fillRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color.ToByte());
@@ -127,7 +159,7 @@ bool VRAM::drawArc(int x, int y, int startAngle, int endAngle, int radius, byte 
         radian = i * 3.14159 / 180;
         auto yVal = (y + radius * sin(radian));
         auto xVal = (x + (radius * cos(radian)));
-        if(xVal <= 0 || yVal <= 0 || xVal >= SCREEN_WIDTH || yVal >= SCREEN_HEIGHT)
+        if(xVal <= 0 || yVal <= 0 || xVal >= settings.screenWidth || yVal >= settings.screenHeight)
             continue; // do not render off-screen content
         WriteByte((int) yVal << 8 | (byte)xVal, color);
     }

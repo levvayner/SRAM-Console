@@ -3,7 +3,7 @@
 #include "Arduino.h"
 #include "Pins.h"
 
-#define SRAM_SIZE (unsigned long)(64lu*1024lu) //we will use lower 16 bits for now /* 1024*1024*/
+#define SRAM_SIZE (unsigned long)65536 //we will use lower 16 bits for now /* 256*256*/
 
 #define BUFFER_SIZE 256
 #define RETRY_COUNT 3
@@ -27,15 +27,15 @@ public:
 	//MAX ADDR is 2048 with 11 address lines
 
 	//construct byte from data bits
-	uint8_t ReadByte(uint16_t addr);
+	uint8_t ReadByte(uint32_t addr);
 	
 	// void WriteFirstByte(uint8_t data, uint16_t offsetAddress = 0);
 	// void WriteNextByte(uint8_t data);
-	bool WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount = RETRY_COUNT, bool showDebugData = true);
-	bool WriteShort(uint16_t addr, uint16_t data, bool showDebugData = true);
-    uint16_t WriteBytes(uint16_t addr, uint8_t* data, uint16_t length);
+	bool WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount = RETRY_COUNT, bool showDebugData = true);
+	bool WriteShort(uint32_t addr, uint16_t data, bool showDebugData = true);
+    uint16_t WriteBytes(uint32_t addr, uint8_t* data, uint16_t length);
 
-    void EraseRam();
+    void EraseRam(int startAddress = 0x0, int length = SRAM_SIZE);
 
 private:
 	uint16_t counter = 0;
@@ -46,7 +46,7 @@ private:
 
 protected:
 
-	void SetAddress(uint16_t addr);
+	void SetAddress(uint32_t addr);
 	void SetDataLines(uint8_t data);
 
 	void BinToSerial(uint8_t var);

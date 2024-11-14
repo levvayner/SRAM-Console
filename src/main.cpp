@@ -2,7 +2,9 @@
 #include "SRAM/SRAM.h"
 #include "SRAM/VRAM.h"
 #include "UI/Console.h"
+#include "PS2KeyAdvanced.h"
 #include "UI/UI.h"
+#include "IO/ps2KeyboardController.h"
 
 
 
@@ -11,7 +13,9 @@ VRAM graphics = VRAM();
 ProgramRom programRom = ProgramRom();
 Console console;
 USBHost usb;
-KeyboardController keyboard(usb);
+KeyboardController keyboardUsb(usb);
+PS2KeyAdvanced keyboardPs2;
+ps2KeyboardController ps2Controller;
 UI ui = UI();
 
 // This function intercepts key press
@@ -37,20 +41,16 @@ void setup() {
 	pinMode(PIN_WE, OUTPUT);
 	//start with chip in neither read nor write.
 	programmer.DeviceOff();
+    ps2Controller.begin();
 
 	digitalWrite(PIN_LED, LOW);
 	Serial.println("");
 	Serial.println("Starting SRAM tool");
-    console.clear();
-    console.write("Welcome");
+    console.clear();    
 }
 
 
-void loop() {
-    
+void loop() {    
     ui.PrintMenu();
-	delay(5);
-	if (Serial.available()) {
-		ui.ProcessInput();
-	}
+	ui.ProcessInput();
 }

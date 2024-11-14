@@ -1,5 +1,5 @@
-#ifndef _COLOR_H_
-#define _COLOR_H_
+#ifndef _fgColor_H_
+#define _fgColor_H_
 #include "stdint.h"
 
 class Color {

@@ -36,6 +36,10 @@
 #define PIN_WE		10	//ACTIVE HIGH	- pull down for 100ns - 1000ns *AFTER* setting address and data. OE should be HIGH. CE should be HIGH.
 #define PIN_OE		9	//ACTIVE HIGH	- pull down *AFTER* setting address and data. WE should be HIGH. CE should be HIGH.
 
+#define PS2_DATA 4
+#define PS2_CLK  3
+
+#define SCREEN_OUTPUT 19 //ACTIVE LOW, when low, cannot write to ram!
 
 #elif defined(__AVR_MEGA__)
 //address pins

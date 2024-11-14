@@ -44,6 +44,8 @@ SRAM::SRAM()
 	pinMode(PIN_ADDR13, OUTPUT);
 	pinMode(PIN_ADDR14, OUTPUT);
     pinMode(PIN_ADDR15, OUTPUT);
+
+    pinMode(SCREEN_OUTPUT, INPUT);
 }
 
 
@@ -73,7 +75,7 @@ void SRAM::DeviceOutput() {
 		//Serial.println("Already in output mode, skip setting mode");
 		return;
 	}
-
+    //while(!digitalRead(SCREEN_OUTPUT)); //wait until blanking period
 	digitalWrite(PIN_OE, LOW);
 	digitalWrite(PIN_WE, LOW); //do in procedure
 
@@ -95,7 +97,7 @@ void SRAM::DeviceWrite() {
 		Serial.println("Already in write mode, skip setting mode");
 		return;
 	}
-	
+	// while(!digitalRead(SCREEN_OUTPUT)); //wait until blanking period
 	digitalWrite(PIN_WE, LOW);
 	digitalWrite(PIN_OE, LOW); //do in procedure
 
@@ -111,7 +113,7 @@ void SRAM::DeviceWrite() {
 	ramState = dsWrite; //update state
 }
 //MAX ADDR is 2048 with 11 address lines, 32k with 15
-void SRAM::SetAddress(uint16_t addr) {
+void SRAM::SetAddress(uint32_t addr) {
 	//each bit of address is going to addr pin 0 - 10. 
     #if defined(__AVR_MEGA__)
         PORTA = addr & 0xFF;
@@ -170,7 +172,7 @@ void SRAM::SetDataLines(uint8_t data) {
 #pragma region Value Read/Write
 
 //construct byte from data bits
-uint8_t SRAM::ReadByte(uint16_t addr) {
+uint8_t SRAM::ReadByte(uint32_t addr) {
 	DeviceOutput();
 	SetAddress(addr);
 	digitalWrite(PIN_OE, HIGH);
@@ -186,12 +188,17 @@ uint8_t SRAM::ReadByte(uint16_t addr) {
 }
 
 
-uint16_t SRAM::WriteBytes(uint16_t addr, uint8_t *data, uint16_t length)
+uint16_t SRAM::WriteBytes(uint32_t addr, uint8_t *data, uint16_t length)
 {
-    
-    uint16_t idx = 0;
     DeviceWrite();
+    uint16_t idx = 0;
+    
     while(idx < length){
+        // if(!digitalRead(SCREEN_OUTPUT)) //wait until blanking period)
+        // {
+        //     DeviceOff();
+        //     while(!digitalRead(SCREEN_OUTPUT));
+        // }
         
         SetAddress(addr);
         SetDataLines(data[idx]);
@@ -209,17 +216,18 @@ uint16_t SRAM::WriteBytes(uint16_t addr, uint8_t *data, uint16_t length)
    return idx;
 }
 
-void SRAM::EraseRam()
+void SRAM::EraseRam(int startAddress, int length)
 {
     byte rowBytes[BUFFER_SIZE];
     memset(rowBytes, ERASE_BYTE,BUFFER_SIZE);
     
-    for(uint16_t line = 0; line < SCREEN_HEIGHT + 10;line++){        
-        WriteBytes(line<< 8, rowBytes,BUFFER_SIZE);
+    for(int pos = startAddress; pos < length / BUFFER_SIZE;pos ++){        
+        WriteBytes(pos<< 8, rowBytes, min(BUFFER_SIZE, length - pos));
     }
 }
 
-bool SRAM::WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount, bool showDebugData) {
+
+bool SRAM::WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount, bool showDebugData) {
 	_retries = 0;
 	bool done = false;
     DeviceWrite();
@@ -227,7 +235,6 @@ bool SRAM::WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount, bool showD
         SetAddress(addr);
 		SetDataLines(data);
 		//toggle WE low for 100ns - 1000ns
-		delayMicroseconds(1); //give 1us for setup time
 		digitalWrite(PIN_WE, HIGH);
         //tCW 70ns
 		delayMicroseconds(1);		
@@ -288,7 +295,7 @@ bool SRAM::WriteByte(uint16_t addr, uint8_t data, uint8_t retryCount, bool showD
 	return done;
 }
 #ifdef DUAL_CHIP
-bool SRAM::WriteShort(uint16_t addr, uint16_t data,bool showDebugData) {
+bool SRAM::WriteShort(uint32_t addr, uint16_t data,bool showDebugData) {
 	_retries = 0;
 	uint16_t data_org = data;
 	bool done = false;

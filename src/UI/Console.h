@@ -6,14 +6,25 @@
 #include "SRAM/VRAM.h"
 #include "Programming/ProgramRom.h"
 #include "KeyboardController.h"
+#include "IO/ps2KeyboardController.h"
+
+/*
+Console has two primary responsibilities
+   1. Render the editor/console window
+   2. Store entered data into a data buffer in the RAM.
+
+   A0-A15 (currently, soon A0-A18) are used for x and y coordinates.
+   A19 high, or upper half the RAM, will be reserved for off the screen stuff, leaving 512kB for each.
+
+*/
 
 #define STATUS_BAR_HEIGHT 10
 
 extern SRAM programmer;
 extern VRAM graphics;
 extern ProgramRom programRom;
-extern KeyboardController keyboard;
-
+extern KeyboardController keyboardUsb;
+extern ps2KeyboardController ps2Controller;
 
 //ascii chars with offset of 32, starting with space
 const byte CHARS[96][5] = {
@@ -29,8 +40,8 @@ const byte CHARS[96][5] = {
     {0X0,0X81,0X42,0X3C,0X0}, // )
     {0X2A,0X1C,0X7F,0X1C,0X2A}, // *
     {0X10, 0X10, 0X7C, 0X10, 0X10}, // +
-    {0X0, 0XA0, 0X60, 0X0, 0X0}, // ,
-    {0X80, 0X80, 0X80, 0X80, 0X80}, // _
+    {0X0, 0XA0, 0X60, 0X0, 0X0}, // ,    
+    {0X0, 0X8, 0X8, 0X8, 0X8}, // -
     {0X0, 0XC0, 0XC0, 0X0, 0X0}, // .
     {0XC0, 0X30, 0XC, 0X3, 0X0}, // /
     { 0X7E, 0XE1, 0X9D, 0X83, 0X7E }, // 0
@@ -85,7 +96,7 @@ const byte CHARS[96][5] = {
     {0X1, 0X6, 0X18, 0X60, 0X80}, // "\"
     {0X0, 0X81, 0X81, 0XFF, 0X0}, // ]
     {0X4, 0X2, 0X1, 0X2, 0X4}, // ^
-    {0X0, 0X8, 0X8, 0X8, 0X8}, // -
+    {0X80, 0X80, 0X80, 0X80, 0X80}, // _
     {0X0, 0X6, 0XC, 0X0, 0X0}, // `
     {0x60, 0x94, 0x94 ,0xF8, 0x00}, // a
     {0XFE, 0X90, 0X90, 0X90, 0X60}, // b
@@ -166,9 +177,10 @@ class Console : Print{
     size_t println(const Printable&);
     size_t println(void);
 
-    inline void clear(){ programmer.EraseRam();}
+    inline void clear(){ programmer.EraseRam(0, graphics.settings.screenHeight << 8);}
+    inline void clearData(){ programmer.EraseRam(1<<19, graphics.settings.screenHeight * graphics.settings.screenWidth);}
 
-    inline void SetPosition(int x, int y, bool drawPosition = true){ _cursorX = x; _cursorY = y; if(drawPosition) {_drawCursorPosition();}}
+    inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ _cursorX = x; _cursorY = y; if(drawPosition && _consoleRunning) {_drawCursorPosition();}}
     void processUSBKey(); //
     inline bool IsConsoleRunning(){ return _consoleRunning;}
 
@@ -183,6 +195,10 @@ class Console : Print{
     bool MoveCursorRight();
     bool MoveCursorLeft();
     
+    /// @brief Calculates the array offset for current position
+    /// number of chars across the screen * number of rows above current + ( x position / char width)
+    /// @return Returns the offset in the data array for the current character 
+    inline uint16_t GetDataPos(){ return ((_cursorY - 1 >= 0) ? _cursorY / graphics.settings.charHeight : 0) * (graphics.settings.screenWidth / graphics.settings.charWidth) + (_cursorX / graphics.settings.charWidth);}
     
 
     
@@ -198,16 +214,19 @@ class Console : Print{
 
     byte _charHeight = 9;
 
-    byte _color = 240;
+    byte _fgColor = 240;
     bool _consoleRunning = false;
     
     
     void _printChar(uint8_t chr, byte charX, byte charY, bool clearBackground = true);
     void _printChars(const char *data, Color color, byte charX, byte charY, bool clearBackground = true);
     void _drawCursorPosition();
+    void _drawColor();
     void _drawCursor();
 
     void _processKey(char keyVal);
+    template< typename T>
+    void _checkPort(T & port);
 };
 
 #endif
