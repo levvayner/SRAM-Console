@@ -1,7 +1,61 @@
 #include "VRAM.h"
 #include "math.h"
+void VRAM::drawText(int x, int y, const char *text, byte color, bool clearBackground )
+{
+    uint16_t charOffsetY = 0, charOffsetX = 0;   
+    //for each character
+    for(size_t idx = 0; idx < strlen(text);idx++)    
+    {
+        
+        //for each column of character
+        for(uint8_t charX = 0;charX < settings.charWidth - 1;charX ++){
+        //TODO: optimize to write line to buffer, then flish out the buffer to ram
+            byte column = charX < settings.charWidth ? CHARS[(uint8_t)(text[idx] - 32)][charX] : 0;
+
+
+            for(int charY = 0; charY < settings.charHeight; charY++){
+                byte isSet = (column & (1 << charY)) > 0;
+                if(!isSet && !clearBackground) continue;
+                WriteByte(((y + charOffsetY + charY) << 8) + x + charOffsetX + charX, isSet ? color : 0);
+            }
+            if(clearBackground)
+                WriteByte(((y + charOffsetY + settings.charHeight) << 8) + x + charOffsetX + charX, 0);
+            
+        }
+
+        //see if we can move over one pixel to the right
+        if (charOffsetX + settings.charWidth < settings.screenWidth)
+        {
+            charOffsetX += settings.charWidth;            
+        } else{
+            //otherwise advance to next available line or beginning
+            charOffsetX = 0;
+            if(charOffsetY + settings.screenHeight * 2 < settings.screenHeight ){
+                charOffsetY += settings.charHeight;
+            } else {
+                charOffsetY = 0;
+            }
+        }
+    }
+}
+void VRAM::drawText(int x, int y, const char *text, Color color, bool clearBackground )
+{
+    drawText(x, y, text, color.ToByte(), clearBackground);
+}
+void VRAM::drawText(int x, int y, char value, byte color, bool clearBackground)
+{
+    char buf[2];
+    sprintf(buf,"%c",value);
+    drawText(x, y, buf, color, clearBackground);    
+}
+void VRAM::drawText(int x, int y, char value, Color color, bool clearBackground)
+{
+    drawText(x, y, value, color.ToByte(), clearBackground);
+}
 bool VRAM::drawPixel(int x, int y, byte color)
 {
+    if(x < 0 || x > settings.screenWidth) return false;
+    if(y < 0 || y > settings.charHeight) return false;
     return WriteByte((y << 8) + x, color);
 }
 
@@ -26,8 +80,7 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
         WriteBytes((y1 << 8) + (x1 > x2 ? x2 : x1),buf,length);
         return true;
     }
-    double slope = (double)(y2 - y1) / double(x2 - x1) ;
-    char buf[256];
+    double slope = (double)(y2 - y1) / double(x2 - x1);
 
     //sprintf(buf,"Drawing line from (%i,%i) to (%i, %i).\nSlope: %lf\n", x1, y1, x2, y2, slope);
     if(slope > 1 || slope < -1){
@@ -48,7 +101,7 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
             drawPixel((int)xCoord, (int)yCoord, color);
         }
     }
-   
+    return true;
 }
 
 bool VRAM::drawLine(Point start, Point end, byte color)
@@ -126,7 +179,8 @@ bool VRAM::fillRect(int x1, int y1, int width, int height, byte color)
 
     for(int y=y1; y < y1 + height; y++){
         WriteBytes((y << 8) + x1, buf, width);
-    }    
+    }  
+    return true;  
 }
 
 bool VRAM::fillRect(int x1, int y1, int width, int height, Color color)

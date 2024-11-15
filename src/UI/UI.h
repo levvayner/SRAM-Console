@@ -5,12 +5,14 @@
 
 // #define DEBUG	1
 // #define VERIFY 1
-#include "Console.h"
+#include "Console.hpp"
+#include "Editor.hpp"
 #include "Color.h"
 #include "SRAM/VRAM.h"
 extern SRAM programmer;
 extern ProgramRom programRom;
 extern Console console;
+extern Editor editor;
 
 // Initialize USB Controller
 extern USBHost usb;
@@ -44,6 +46,9 @@ public:
 private:
     template <typename TPort>
     void _processInput(TPort port);
+
+    template <typename TPort>
+    String _getResponse(TPort port);
 private:
 	bool ledState = 0;
 	unsigned long lastToggle = 0;

@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "SRAM/SRAM.h"
 #include "SRAM/VRAM.h"
-#include "UI/Console.h"
+#include "UI/Editor.hpp"
 #include "PS2KeyAdvanced.h"
 #include "UI/UI.h"
 #include "IO/ps2KeyboardController.h"
@@ -12,6 +12,7 @@ SRAM programmer = SRAM();
 VRAM graphics = VRAM();
 ProgramRom programRom = ProgramRom();
 Console console;
+Editor editor;
 USBHost usb;
 KeyboardController keyboardUsb(usb);
 PS2KeyAdvanced keyboardPs2;
@@ -20,8 +21,8 @@ UI ui = UI();
 
 // This function intercepts key press
 void keyPressed() {
-    if(console.IsConsoleRunning())
-        console.processUSBKey();
+    if(editor.IsConsoleRunning())
+        editor.processUSBKey();
   Serial.print("Pressed:  ");
 }
 
@@ -40,13 +41,14 @@ void setup() {
     #endif
 	pinMode(PIN_WE, OUTPUT);
 	//start with chip in neither read nor write.
+    programmer.EraseRam();
 	programmer.DeviceOff();
     ps2Controller.begin();
 
 	digitalWrite(PIN_LED, LOW);
 	Serial.println("");
 	Serial.println("Starting SRAM tool");
-    console.clear();    
+    editor.clear();    
 }
 
 

@@ -4,6 +4,7 @@
 #include "Arduino.h"
 #include "Pins.h"
 #include "PS2KeyAdvanced.h"
+#include "UI/Keys.h"
 
 /* Columns in display */
 #define MAX_COL 16
@@ -51,7 +52,7 @@ const uint8_t codes[] = { PS2_KEY_SPACE, PS2_KEY_TAB, PS2_KEY_ESC,
                           PS2_KEY_F4, PS2_KEY_F5, PS2_KEY_F6, PS2_KEY_F7,
                           PS2_KEY_F8, PS2_KEY_F9, PS2_KEY_F10, PS2_KEY_F11,
                           PS2_KEY_F12 };
-const char *const keys[]  =  { " ", "[Tab]", "[ESC]", "[Del]", "[F1]", "[F2]", "[F3]",
+const char *const keys[]  =  { " ", "    ", "[ESC]", "[Del]", "[F1]", "[F2]", "[F3]",
                                "[F4]", "[F5]", "[F6]", "[F7]", "[F8]",
                                "[F9]", "[F10]", "[F11]", "[F12]" };
 const int8_t sizes[]  = { 1, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5 };
@@ -63,7 +64,7 @@ const int8_t sizes[]  = { 1, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5 };
 class ps2KeyboardController{
 public:
     void begin();
-    void loop();
+    ConsoleKeyPress getKey();
 
 private:
 

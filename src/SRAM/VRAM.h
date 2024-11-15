@@ -2,7 +2,7 @@
 #define _V_RAM_H
 #include "SRAM.h"
 #include "Color.h"
-
+#include "UI/Chars.h"
 
 
 struct Point{
@@ -41,6 +41,7 @@ struct VRAMSettings{
     int screenHeight = 120;
     int charWidth = 6;
     int charHeight = 9;
+    int screenBufferHeight = 3000;
 };
 
 
@@ -48,6 +49,12 @@ class VRAM : SRAM{
     
     public:
         VRAMSettings settings;
+
+        void drawText(int x, int y, const char * text, byte color = 0xFF, bool clearBackground = true);
+        void drawText(int x, int y, const char * text, Color color = Color::WHITE, bool clearBackground = true);
+
+        void drawText(int x, int y, char value, byte color = 0xFF, bool clearBackground = true);
+        void drawText(int x, int y, char value, Color color = Color::WHITE, bool clearBackground = true);
 
         bool drawPixel(int x, int y, byte color = 0xFF);
         bool drawPixel(int x, int y, Color color);

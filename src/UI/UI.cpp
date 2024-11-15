@@ -23,8 +23,8 @@ void UI::blinkLED() {
 }
 
 void UI::PrintMenu() {
-	if (!needPrintMenu) return;    
-	Serial.println(F("VGA TOOL   -   v 0.0.1"));
+	if (!needPrintMenu) return; 
+    Serial.println(F("VGA TOOL   -   v 0.0.1"));
 	Serial.println(F("--------------------------------"));
 	Serial.println(F("Press r to read"));
 	Serial.println(F("Press w to write"));
@@ -46,7 +46,7 @@ void UI::PrintMenu() {
     console.println(" s - store  e - erase ");
     console.println("Graphics: ");
     console.println(" b- blocks  v/l - lines  g -test");
-    console.println("Aps: i - console");
+    console.println("Aps: i - editor");
 	console.println("--------------------------------");
 
 	needPrintMenu = false;
@@ -99,10 +99,10 @@ void UI::DumpRAM() {
 		for (uint32_t base = address; base <= address + 256 && base <= addrE; base += frameSize) {
 			byte data;
             char buf[80];       
-            sprintf(buf, "%06x: ", base);     
+            sprintf(buf, "%p: ", (void*)base);     
             byte frameOffset = base == address ? baseOffset : 0;
             bool isLastFrame = base + 16 > addrE;            
-            for (int offset = 0; offset <= 15 ; offset += 1) {
+            for (uint32_t offset = 0; offset <= 15 ; offset += 1) {
                 if(frameOffset != 0 && (offset < frameOffset)){
                     sprintf(buf, "%s --",buf);
                 }
@@ -142,11 +142,29 @@ void UI::ProcessInput() {
 }
 
 
+template <typename TPort>
+String UI::_getResponse(TPort port){
+    String resp;
+    while(port.available())
+    {
+        char c = port.read();
+        //Serial.print("Read "); Serial.println(c);
+        resp += c;
+    }
+    return resp;
+}
 
 template <typename TPort>
 inline void UI::_processInput(TPort port)
 {
-    auto resp = port.readString();
+    unsigned long startTime = millis();
+    while(millis() - startTime < 200 && ! port.available());
+    
+    String resp = _getResponse(port);
+    
+    if(resp.length() <= 0) return;
+    //Serial.print("Received response: "); Serial.println(resp);
+    //auto resp = port.readString();
 	if (resp[0]== 'r' || resp[0] == 'R') {
 		//read
 		Serial.println("Enter address to read");
@@ -154,7 +172,7 @@ inline void UI::_processInput(TPort port)
 		while (!port.available()) {
 			blinkLED();
 		}
-		String addrS = port.readString();
+		String addrS = _getResponse(port);
 		uint32_t addr = addrS.toInt();
 
 		byte data = programmer.ReadByte(addr);
@@ -167,17 +185,17 @@ inline void UI::_processInput(TPort port)
 
 		Serial.print("Enter address to write");
 		while (!port.available());
-		String addrS = port.readString();
+		String addrS =  _getResponse(port);
 		uint32_t addr = addrS.toInt();
         Serial.print(": "); Serial.println(addr,HEX);
 
 		Serial.print("Enter data to store in decimal form");
 		
 		while (!port.available());
-		String dataS = port.readString();
+		String dataS =  _getResponse(port);
 		byte data = dataS.toInt();
         Serial.print(": "); Serial.println(data, DEC);
-        bool sucess = programmer.WriteByte(addr, data);
+        programmer.WriteByte(addr, data);
 #ifdef DEBUG
 
 		if (sucess) {
@@ -272,49 +290,23 @@ inline void UI::_processInput(TPort port)
         int blockWidth = floor(graphics.settings.screenWidth / 16) + 1; //rather push off screen a bit
         int blockHeight = floor((graphics.settings.screenHeight - 14) / 16);
         //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
-        console.clear();
+        graphics.clear();
         int color = 0xFF;
-        byte colors[blockWidth];
+        //byte colors[blockWidth];
+        char label[3];
+        
         unsigned long  startTime = millis();
         for(int x = 1; x < graphics.settings.screenWidth; x+= blockWidth){
             for(int y=1;y < graphics.settings.screenHeight - 14; y+= blockHeight){ 
-                
-                if(color < 0x0) break;
-                
-                memset(colors,color, blockWidth);
-                for(int pxlY = y; pxlY < y + blockHeight; pxlY++){
-                    programmer.WriteBytes((pxlY << 8 ) + x, colors, blockWidth);
-                }
-                // console.SetPosition(x,y);
-                // //hundreds
-                // if(color >= 200) console.write('2',Color::WHITE,false);
-                // else if (color >= 100) console.write('1',Color::WHITE,false);
-                // //tens
-                // if(((color%100 - (color % 10)))/10 > 0)
-                //     console.write(((color%100 - (color % 10)))/10 + 48,Color::WHITE,false); 
-                // //ones               
-                // console.write((color % 10) + 48,Color::WHITE,false);
+                graphics.fillRect(x,y, blockWidth, blockHeight,color);
+                memset(label,0,3);
+                sprintf(label, "%i", color);
+                graphics.drawText(x + 1, y, label,Color::WHITE, false);
                 color--;
-                if(color == 0) break;
-               
             }               
         }
         Serial.print(F("Blocks : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
-
-        // startTime = millis();
-        // color = 255;
-        // color = 255;
-        // for(int x = 0; x < blockWidth * 16; x+= blockWidth){
-        //     for(int y=0;y < blockHeight * 16; y+= blockHeight){ 
-        //         console.SetPosition(x,y);
-        //         sprintf(buf,"%i", color);                
-        //         console.write(buf, strlen(buf), Color::WHITE,false);
-        //         sprintf(buf,"%i", color);                
-        //         console.write(buf, strlen(buf), Color::WHITE,false);
-        //          color--;
-        //     }
-        // }
-        // Serial.print(F("Block labels : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
+        
         console.SetPosition(3, graphics.settings.screenHeight - 9, false);
         console.write("8 ", 2,Color::RED, true);
         console.write("b", 1,Color::GREEN, true);
@@ -414,7 +406,7 @@ inline void UI::_processInput(TPort port)
         
     }
     else if(resp[0] == 'i' || resp[0] == 'I'){
-        console.run();        
+        editor.run();        
         needPrintMenu = true;
     }
     else if(resp[0] == 'h' || resp[0] == 'H'){

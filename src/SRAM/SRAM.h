@@ -35,7 +35,7 @@ public:
 	bool WriteShort(uint32_t addr, uint16_t data, bool showDebugData = true);
     uint16_t WriteBytes(uint32_t addr, uint8_t* data, uint16_t length);
 
-    void EraseRam(int startAddress = 0x0, int length = SRAM_SIZE);
+    void EraseRam(uint32_t startAddress = 0x0, uint32_t length = SRAM_SIZE);
 
 private:
 	uint16_t counter = 0;

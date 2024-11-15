@@ -1,5 +1,8 @@
 #include "SRAM.h"
 #include "UI/UI.h"
+
+#define NOP __asm__ __volatile__ ("nop\n\t")
+
 extern UI ui;
 // #if defined(ARDUINO_SAM_DUE)
 // #define PORTA POIA
@@ -7,43 +10,29 @@ extern UI ui;
 
 SRAM::SRAM()
 {
-    
-    //address is A port, pins 10-17 and D port 0-7
-    //set address pins to gpio    
-    // PIOA->PIO_PER |= 0xFF << 10;
-    // PIOD->PIO_PER |=  0xFF;  
-
-    //set data pins to gpio
-//    PIOC->PIO_PER |= 0xFF << 1;     // bits 1 to 8
-
-    //set address as output
-    // PIOA->PIO_OER |= 0xFF << 10;    // bits 10 - 17
-    
-    
-    /*
-    USART3->US_CR = US_CR_RXDIS;
-    USART3->US_CR = US_CR_TXDIS;
+    /*      Memory addressing is 20 bits wide (A0 - A19) with A0-A15 connected to a bus shared with the timing circuit.
+            Bits 0 to 7 are connected to Port C, pins 12 to 19
+            Bits 8 to 11 are connected to port D pins 1 to 4
+            Bits 12 to 15 are connected to port B pins 17 to 21
+            Bits 16 to 19 are connected to port A pins 14 to 17
     */
-    PIOC->PIO_PER |= 0xFF << 12;    // lowest 8 bits
+    //Set up address bits by setting to gpio mode and output mode
+    PIOC->PIO_PER |= 0xFF << 12;    // address bits 0 - 7
     PIOC->PIO_OER |= 0xFF << 12;
     
-    PIOD->PIO_PER |= 0xF;    // upper 8 bits
+    PIOD->PIO_PER |= 0xF;           // address bits 8-11
     PIOD->PIO_OER |= 0xF;
-    PIOB->PIO_PER |= 0xF << 17;    // upper 8 bits
+    PIOB->PIO_PER |= 0xF << 17;     // address bits 12-15
     PIOB->PIO_OER |= 0xF << 17;
 
+    PIOA->PIO_PER |= 0xF << 14;     // address bits 16-19
+    PIOA->PIO_OER |= 0xF << 14;
+    
+    //enable peripheral clocks. TODO: verify if this is needed
+    PMC->PMC_PCER0 |= PMC_PCER0_PID11;
+    PMC->PMC_PCER0 |= PMC_PCER0_PID12;
+    PMC->PMC_PCER0 |= PMC_PCER0_PID13;
     PMC->PMC_PCER0 |= PMC_PCER0_PID14;
-    PMC->PMC_PCER0 = PMC_PCER0_PID13;
-    PMC->PMC_PCER0 = PMC_PCER0_PID12;
-
-	pinMode(PIN_ADDR8, OUTPUT);
-	pinMode(PIN_ADDR9, OUTPUT);
-	pinMode(PIN_ADDR10, OUTPUT);
-	pinMode(PIN_ADDR11, OUTPUT);
-	pinMode(PIN_ADDR12, OUTPUT);
-	pinMode(PIN_ADDR13, OUTPUT);
-	pinMode(PIN_ADDR14, OUTPUT);
-    pinMode(PIN_ADDR15, OUTPUT);
 
     pinMode(SCREEN_OUTPUT, INPUT);
 }
@@ -119,41 +108,25 @@ void SRAM::SetAddress(uint32_t addr) {
         PORTA = addr & 0xFF;
         PORTC = addr >> 8;
 	#elif defined(ARDUINO_SAM_DUE)
-        //lowest 8 bits of address are on port a, pins 10-17, upper are port d pins 0-7
     
-    // PIOC->PIO_SODR = (addr & 0xFF) << 12; 
-    // PIOC->PIO_CODR = ((addr ^ 1) & 0xFF) << 12;
-
-    // PIOD->PIO_SODR = ((addr >> 8) & 0xFF); 
-    // PIOD->PIO_CODR = (((addr >> 8) ^ 1) & 0xFF) ;
-    //Serial.print("Setting lower 8 bits in reg a using mask "); Serial.print(0xFF << 10,BIN); Serial.print(" and value "); Serial.println((addr & 0xFF) << 10, BIN);
-    //lower address bits
+    //lower address bits 0-7
     REG_PIOC_CODR = 0xFF << 12;
     REG_PIOC_SODR = (addr & 0xFF) << 12;
 
-    //upper address bits
-    //first four  are register D pins 0-3, upper 4 are port B 17 - 20
+    
+    //address bits 8-11
     REG_PIOB_CODR = 0xF << 17;
     REG_PIOB_SODR = ((addr >> 12) & 0xF)  << 17;
 
+    //address bits 12-15
     REG_PIOD_CODR = 0xF;
     REG_PIOD_SODR = ((addr >> 8) & 0xF);
 
-    /*
-    //Serial.print("Setting upper 8 bits in reg a using mask "); Serial.print(0xFF,BIN); Serial.print(" and value "); Serial.println(((addr >> 8) & 0xFF), BIN);
-    REG_PIOD_CODR = 0xFF;
-    REG_PIOD_SODR = ((addr >> 8) & 0xFF);
-    */
-   
-    // digitalWrite(PIN_ADDR8, addr & 0x1 << 8);
-    // digitalWrite(PIN_ADDR9, addr & 0x1 << 9);
-    // digitalWrite(PIN_ADDR10, addr & 0x1 << 10);
-    // digitalWrite(PIN_ADDR11, addr & 0x1 << 11);
-    // digitalWrite(PIN_ADDR12, addr & 0x1 << 12);
-    // digitalWrite(PIN_ADDR13, addr & 0x1 << 13);
-    // digitalWrite(PIN_ADDR14, addr & 0x1 << 14);
-    // digitalWrite(PIN_ADDR15, addr & 0x1 << 15);
-        //tAA = 80ns	
+    //Address bits 16-19: Port A, pins 14-19 (unverified)
+    REG_PIOA_CODR = 0xF << 14;
+    REG_PIOA_SODR = ((addr >> 16) & 0xF) << 14;
+
+    //tAA = 80ns	
     #endif
 
 }
@@ -180,7 +153,7 @@ uint8_t SRAM::ReadByte(uint32_t addr) {
     #ifdef USE_PORT_IO
         uint8_t readValue = PINL;
     #else        
-        PIOC->PIO_ODR = (0xFF << 1);
+        PIOC->PIO_ODR |= (0xFF << 1);
         uint8_t readValue =  (PIOC->PIO_PDSR >> 1) & 0xFF;	  
     #endif
     DeviceOff();
@@ -205,7 +178,8 @@ uint16_t SRAM::WriteBytes(uint32_t addr, uint8_t *data, uint16_t length)
         //toggle WE low for 100ns - 1000ns
         //give 1us for setup time
         digitalWrite(PIN_WE, HIGH);
-        delayMicroseconds(1);		
+        //delayMicroseconds(1);		
+        NOP;
         digitalWrite(PIN_WE, LOW);
         idx++;
         addr++;       
@@ -216,13 +190,12 @@ uint16_t SRAM::WriteBytes(uint32_t addr, uint8_t *data, uint16_t length)
    return idx;
 }
 
-void SRAM::EraseRam(int startAddress, int length)
+void SRAM::EraseRam(uint32_t startAddress, uint32_t length)
 {
     byte rowBytes[BUFFER_SIZE];
     memset(rowBytes, ERASE_BYTE,BUFFER_SIZE);
-    
-    for(int pos = startAddress; pos < length / BUFFER_SIZE;pos ++){        
-        WriteBytes(pos<< 8, rowBytes, min(BUFFER_SIZE, length - pos));
+    for(uint32_t pos = startAddress; pos < length ;pos += min(BUFFER_SIZE, length - pos)){  
+        WriteBytes(pos, rowBytes, min(BUFFER_SIZE, length - pos));
     }
 }
 
@@ -237,7 +210,7 @@ bool SRAM::WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount, bool showD
 		//toggle WE low for 100ns - 1000ns
 		digitalWrite(PIN_WE, HIGH);
         //tCW 70ns
-		delayMicroseconds(1);		
+		NOP; //delayMicroseconds(1);		
 		digitalWrite(PIN_WE, LOW);
 		
 

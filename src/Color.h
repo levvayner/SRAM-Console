@@ -13,17 +13,17 @@ class Color {
     inline uint8_t Green(){ return _green;}
     inline uint8_t Blue(){ return _blue;}
 
-    inline uint8_t ToByte(){ return _red | _green << 3 | _blue << 6;}
+    inline uint8_t ToByte(){ return (_red << 5) | ((_green & 0x7) << 2) | (_blue & 0x3);}
 
        
     static inline Color FromRGB(uint8_t red, uint8_t green, uint8_t blue){
         return Color(red,green,blue);
     }
     const static uint8_t WHITE = 0xFF;
-    const static uint8_t GRAY = 0xDF;
+    const static uint8_t GRAY = 216;
     const static uint8_t BLACK = 0x0;
     const static uint8_t GREEN = 0x1 << 3;
-    const static uint8_t BLUE = 0x1 << 6;
+    const static uint8_t BLUE = 0x3 << 6 ;
     const static uint8_t CYAN = 71;
     const static uint8_t YELLOW  = 63;
     const static uint8_t GOLD = 31;
