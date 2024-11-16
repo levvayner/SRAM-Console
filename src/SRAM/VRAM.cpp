@@ -174,6 +174,10 @@ bool VRAM::drawRect(Point topLeft, Point bottomRight, Color color)
 
 bool VRAM::fillRect(int x1, int y1, int width, int height, byte color)
 {
+    if(x1 < 0) x1 = 0;
+    if(y1 < 0) y1 = 0;
+    if(width > settings.screenWidth - x1) width = settings.screenWidth - x1;
+    if(height > settings.screenHeight - y1) height = settings.screenHeight - y1;
     byte buf[width];
     memset(buf,color, width);
 
@@ -223,6 +227,10 @@ bool VRAM::drawArc(int x, int y, int startAngle, int endAngle, int radius, byte 
 bool VRAM::fillCircle(int centerX, int centerY, int radius, byte color)
 {
     Rectangle boundRect = Rectangle(centerX - radius,centerY - radius, centerX + radius, centerY + radius);
+    if(boundRect.x1 < 0) boundRect.x1 = 0;
+    if(boundRect.y1 < 0) boundRect.y1 = 0;
+    if(boundRect.width() > settings.screenWidth - boundRect.x1) boundRect.x2 = settings.screenWidth;
+    if(boundRect.height() > settings.screenHeight - boundRect.y1) boundRect.y2 = settings.screenHeight ;
     byte data[boundRect.width()];
 
     //memset(data, 0, boundRect.height() * boundRect.width()); //TODO: consider using global background color or not filling

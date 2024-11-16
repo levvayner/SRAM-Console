@@ -29,7 +29,7 @@ void Editor::run()
                 _drawCursorPosition();
                 break;
             case PS2_KEY_SPACE:
-            
+
                 AdvanceCursor(false);
                 _drawCursorPosition();
                 break;
@@ -116,9 +116,11 @@ void Editor::run()
 }
 
 
-void Editor::AdvanceCursor(bool nextLine)
+bool Editor::AdvanceCursor(bool nextLine)
 {
-    Console::AdvanceCursor(nextLine);
+    bool newLine = Console::AdvanceCursor(nextLine);
+    
+
     
     _drawCursorPosition();
 }

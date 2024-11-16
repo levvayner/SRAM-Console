@@ -29,10 +29,6 @@ extern VRAM graphics;
 extern ProgramRom programRom;
 extern KeyboardController keyboardUsb;
 extern ps2KeyboardController ps2Controller;
-
-
-
-
 class Console : Print{
 
     public:
@@ -77,7 +73,7 @@ class Console : Print{
     size_t println(const Printable&);
     size_t println(void);
 
-    virtual inline void clear(){ programmer.EraseRam(0, graphics.settings.screenHeight << 8);}
+    virtual inline void clear(){ programmer.EraseRam(0, _windowHeight << 8);}
     virtual inline void clearData(){ programmer.EraseRam(1<<19, graphics.settings.screenBufferHeight * graphics.settings.screenWidth);}
 
     virtual inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ _cursorX = x; _cursorY = y; }
@@ -85,7 +81,10 @@ class Console : Print{
     virtual ConsoleKeyAction processPS2Key(uint8_t ps2KeyCode); //
     inline bool IsConsoleRunning(){ return _consoleRunning;}
 
-    virtual void AdvanceCursor( bool nextLine = false);    
+    /// @brief Advances cursor in console.
+    /// @param nextLine True if cursor should advance to next line
+    /// @return True if cursor advanced to a new line
+    virtual bool AdvanceCursor( bool nextLine = false);    
     virtual bool ReverseCursor ();
     virtual bool MoveCursorUp();
     virtual bool MoveCursorDown();
@@ -102,7 +101,7 @@ class Console : Print{
     /// @brief Calculates the array offset for current position
     /// number of chars across the screen * number of rows above current + ( x position / char width)
     /// @return Returns the offset in the data array for the current character 
-    virtual inline uint16_t GetDataPos(){ return ((_cursorY - 1 >= 0) ? (_cursorY / graphics.settings.charHeight) + _scrollOffset : 0) * (graphics.settings.screenWidth / graphics.settings.charWidth) + (_cursorX / graphics.settings.charWidth);}
+    virtual inline uint16_t GetDataPos(){ return ((_cursorY - 1 >= 0) ? (_cursorY / graphics.settings.charHeight) + _scrollOffset : 0) * ((graphics.settings.screenWidth / graphics.settings.charWidth) + 1 )+ (_cursorX / graphics.settings.charWidth);}
     
     
 
@@ -131,7 +130,7 @@ class Console : Print{
             chr = port.read();
             if( chr == 255) return None;
             
-            Serial.print("Read 0x"); Serial.println(chr, HEX);
+            //Serial.print("Read 0x"); Serial.println(chr, HEX);
             if(chr == 0x1B){
                 writable = false;
                 //escape key. If not directly followed by other chars, treat as escape

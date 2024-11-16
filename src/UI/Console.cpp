@@ -10,8 +10,8 @@ size_t Console::write(uint8_t data, byte color, bool clearBackround)
     auto pos = 1 << 19 | GetDataPos();
     EraseCursor();
     //Serial.print("Console: Writing data: "); Serial.print(data); Serial.print(" at position: 0x"); Serial.println(pos, HEX);
-    if(data == 10){
-        programmer.WriteByte( pos,data,1,false);
+    if(data == 10 && _consoleRunning){
+        programmer.WriteByte( pos,data);
         AdvanceCursor(true);
         return 1;
     }
@@ -19,7 +19,7 @@ size_t Console::write(uint8_t data, byte color, bool clearBackround)
 
     graphics.drawText(_cursorX,_cursorY, data, color, clearBackround);
     if(_consoleRunning) 
-        programmer.WriteByte( pos,data,1,false); //write to data space
+        programmer.WriteByte( pos,data); //write to data space
     AdvanceCursor();
 
     return 1;
@@ -117,16 +117,23 @@ void Console::_processKey(char keyVal){
 
 
 
-void Console::AdvanceCursor(bool nextLine)
+bool Console::AdvanceCursor(bool nextLine)
 {
     //see if we can move over one pixel to the right
     if (_cursorX + graphics.settings.charWidth < graphics.settings.screenWidth && !nextLine)
     {
         _cursorX += graphics.settings.charWidth;
-        return;
+        return false;
     }
-    //otherwise advance to next available line or beginning
+    //otherwise advance to next available line 
+    if(!nextLine && _consoleRunning){
+        Serial.print("Advancing to new line, injecting NL into data cache at address 0x"); Serial.println(GetDataPos(), HEX);
+        programmer.WriteByte( 1 << 19 | (GetDataPos() + 1) ,10,1,false);      
+        programmer.ReadByte(0); //turn off 19th bit     
+    }
+
     _cursorX = 0;
+    //if we need to scroll down
     if(_cursorY + graphics.settings.charHeight + 2  >= _windowHeight && _consoleRunning){
         _scrollOffset++;
         uint32_t pos = _scrollOffset * (graphics.settings.screenWidth / graphics.settings.charWidth);
@@ -147,8 +154,11 @@ void Console::AdvanceCursor(bool nextLine)
         }
         programmer.ReadByte(0x0); 
         _consoleRunning = true;
-    }
-    _cursorY += graphics.settings.charHeight;
+    } else //otherwise move down one
+        _cursorY += graphics.settings.charHeight;
+    
+    
+    return true;
     
 }
 

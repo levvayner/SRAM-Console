@@ -39,7 +39,7 @@ class Editor : public Console{
     virtual inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ Console::SetPosition(x,y); if(drawPosition && _isEditorRunning) {_drawCursorPosition();}}
     //virtual ConsoleKeyPress processPS2Key(uint8_t ps2KeyCode);
 
-    void AdvanceCursor(bool nextLine = false);
+    bool AdvanceCursor(bool nextLine = false);
     bool ReverseCursor();
     bool MoveCursorDown();
 

@@ -20,26 +20,25 @@ class Color {
         return Color(red,green,blue);
     }
     const static uint8_t WHITE = 0xFF;
-    const static uint8_t GRAY = 216;
+    const static uint8_t GRAY = 210;
     const static uint8_t BLACK = 0x0;
-    const static uint8_t GREEN = 0x1 << 3;
+    const static uint8_t GREEN = 0x7 << 3;
     const static uint8_t BLUE = 0x3 << 6 ;
-    const static uint8_t CYAN = 71;
-    const static uint8_t YELLOW  = 63;
-    const static uint8_t GOLD = 31;
-    const static uint8_t ORANGE = 15;    
-    const static uint8_t PEACH = 159;
-    const static uint8_t RED = 0x7;
-    const static uint8_t TEAL = 248;
-    const static uint8_t PURPLE = 198 ;
-    const static uint8_t LIME = 60;
-    const static uint8_t BRICK = 151;
-    const static uint8_t MAROON = 2;
-    const static uint8_t BROWN = 17;
-    const static uint8_t NAVY_BLUE = 80;
-    const static uint8_t LIGHT_BLUE = 240;
-    const static uint8_t LIGHT_GREEN = 30;
-    const static uint8_t DARK_GREEN = 16;
+    const static uint8_t YELLOW  = 252;
+    const static uint8_t GOLD = 216;
+    const static uint8_t ORANGE = 237;    
+    const static uint8_t PEACH = 242;
+    const static uint8_t RED = 224;
+    const static uint8_t TEAL = 87;
+    const static uint8_t PURPLE = 96 ;
+    const static uint8_t LIME = 125;
+    const static uint8_t BRICK = 165;
+    const static uint8_t MAROON = 129;
+    const static uint8_t BROWN = 140;
+    const static uint8_t NAVY_BLUE = 1;
+    const static uint8_t LIGHT_BLUE = 119;
+    const static uint8_t LIGHT_GREEN = 93;
+    const static uint8_t DARK_GREEN = 9;
 
     private:
         uint8_t _red;

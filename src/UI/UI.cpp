@@ -299,9 +299,9 @@ inline void UI::_processInput(TPort port)
         for(int x = 1; x < graphics.settings.screenWidth; x+= blockWidth){
             for(int y=1;y < graphics.settings.screenHeight - 14; y+= blockHeight){ 
                 graphics.fillRect(x,y, blockWidth, blockHeight,color);
-                memset(label,0,3);
-                sprintf(label, "%i", color);
-                graphics.drawText(x + 1, y, label,Color::WHITE, false);
+                // memset(label,0,3);
+                // sprintf(label, "%i", color);
+                // graphics.drawText(x + 1, y, label,Color::WHITE, false);
                 color--;
             }               
         }
