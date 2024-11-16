@@ -139,7 +139,7 @@ bool Console::AdvanceCursor(bool nextLine)
         uint32_t pos = _scrollOffset * (graphics.settings.screenWidth / graphics.settings.charWidth);
         uint32_t endPos = GetDataPos();
         char nextChar;
-        char buf[256];
+        char buf[BUFFER_SIZE];
 
         _consoleRunning = false;        
         _cursorY = 0;
@@ -148,9 +148,9 @@ bool Console::AdvanceCursor(bool nextLine)
         sprintf(buf,"Redrawing characters from offset %i to position %i", pos, endPos);
         Serial.println(buf);
         //redraw the text from the scroll offset line
-        for(; pos < endPos ;pos++){
-            nextChar = programmer.ReadByte(1 << 19 | pos);            
-            write(nextChar);
+        for(; pos < endPos ;pos+= BUFFER_SIZE){
+            auto length = programmer.ReadBytes(1 << 19 | pos, (uint8_t*)buf,min(BUFFER_SIZE, endPos - pos));
+            write(buf,length);
         }
         programmer.ReadByte(0x0); 
         _consoleRunning = true;

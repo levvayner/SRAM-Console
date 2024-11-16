@@ -28,6 +28,7 @@ public:
 
 	//construct byte from data bits
 	uint8_t ReadByte(uint32_t addr);
+    size_t ReadBytes(uint32_t addr, uint8_t* buffer, size_t length);
 	
 	// void WriteFirstByte(uint8_t data, uint16_t offsetAddress = 0);
 	// void WriteNextByte(uint8_t data);

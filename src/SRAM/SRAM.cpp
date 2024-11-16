@@ -160,6 +160,28 @@ uint8_t SRAM::ReadByte(uint32_t addr) {
 	return readValue;
 }
 
+size_t SRAM::ReadBytes(uint32_t addr, uint8_t *buffer, size_t length)
+{
+    DeviceOutput();
+    uint32_t endAddr = addr + length;
+    uint32_t curAddr = addr;
+    digitalWrite(PIN_OE, HIGH);
+    //tOE = 35ns, @84Mhz 1 tick is 1.2e-8s or 12ns. 3 clocks will pass at least
+    while(curAddr < endAddr){
+        SetAddress(addr);
+        NOP; //tAA ~70 ns
+        
+        #ifdef USE_PORT_IO
+            uint8_t readValue = PINL;
+        #else        
+            PIOC->PIO_ODR |= (0xFF << 1);
+            buffer[curAddr - addr] =  (PIOC->PIO_PDSR >> 1) & 0xFF;	  
+        #endif
+        curAddr++;
+    }
+    DeviceOff();
+	return curAddr - addr;
+}
 
 uint16_t SRAM::WriteBytes(uint32_t addr, uint8_t *data, uint16_t length)
 {
