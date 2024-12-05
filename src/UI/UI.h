@@ -37,7 +37,7 @@ public:
 	void PrintMenu();
 
 	void DumpRAM();
-	void EraseRAM();
+	void ClearScreen();
 	void ProcessInput();
 	//void GetChipCount();
 	//void PrintOpCode(uint8_t opCode, bool condJump);

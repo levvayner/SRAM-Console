@@ -37,11 +37,12 @@ struct Rectangle{
 
 
 struct VRAMSettings{
-    int screenWidth = 200;
-    int screenHeight = 120;
+    int screenWidth = 432;
+    int screenHeight = 240;
     int charWidth = 6;
     int charHeight = 9;
     int screenBufferHeight = 3000;
+    int horizontalBits = 10;
 };
 
 
@@ -50,11 +51,16 @@ class VRAM : SRAM{
     public:
         VRAMSettings settings;
 
-        void drawText(int x, int y, const char * text, byte color = 0xFF, bool clearBackground = true);
-        void drawText(int x, int y, const char * text, Color color = Color::WHITE, bool clearBackground = true);
+        VRAM();
+        ~VRAM();
 
-        void drawText(int x, int y, char value, byte color = 0xFF, bool clearBackground = true);
-        void drawText(int x, int y, char value, Color color = Color::WHITE, bool clearBackground = true);
+        void begin();
+
+        void drawText(int x, int y, const char * text, byte color = 0xFF, bool clearBackground = true, bool useFrameBuffer = false);
+        void drawText(int x, int y, const char * text, Color color = Color::WHITE, bool clearBackground = true, bool useFrameBuffer = false);
+
+        void drawText(int x, int y, char value, byte color = 0xFF, bool clearBackground = true, bool useFrameBuffer = false);
+        void drawText(int x, int y, char value, Color color = Color::WHITE, bool clearBackground = true, bool useFrameBuffer = false);
 
         bool drawPixel(int x, int y, byte color = 0xFF);
         bool drawPixel(int x, int y, Color color);
@@ -88,11 +94,15 @@ class VRAM : SRAM{
 
         
 
-        bool clear(int x1 = 0, int y1 = 0, int width = 800, int height = 600){
+        bool clear(int x1 = 0, int y1 = 0, int width = 420, int height = 242){
             return fillRect(x1, y1, width, height, Color::BLACK);
         }
 
-    
+        /// @brief renders frame buffer to screen (writes to ram)
+        void render();
+
+    private:
+    uint8_t *_frameBuffer;
 
 };
 #endif

@@ -41,14 +41,16 @@ void setup() {
     #endif
 	pinMode(PIN_WE, OUTPUT);
 	//start with chip in neither read nor write.
-    programmer.EraseRam();
+    //programmer.Erase();
 	programmer.DeviceOff();
     ps2Controller.begin();
 
 	digitalWrite(PIN_LED, LOW);
 	Serial.println("");
 	Serial.println("Starting SRAM tool");
+    graphics.begin();
     editor.clear();    
+
 }
 
 

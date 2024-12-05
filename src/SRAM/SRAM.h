@@ -3,9 +3,9 @@
 #include "Arduino.h"
 #include "Pins.h"
 
-#define SRAM_SIZE (unsigned long)65536 //we will use lower 16 bits for now /* 256*256*/
+#define SRAM_SIZE (unsigned long)1048576 //20 bit address
 
-#define BUFFER_SIZE 256
+#define BUFFER_SIZE 1 << 10
 #define RETRY_COUNT 3
 #define ERASE_BYTE 0 //value denoting an erased byte
 
@@ -28,15 +28,15 @@ public:
 
 	//construct byte from data bits
 	uint8_t ReadByte(uint32_t addr);
-    size_t ReadBytes(uint32_t addr, uint8_t* buffer, size_t length);
+    size_t ReadBytes(uint32_t addr, uint8_t* buffer, uint32_t length);
 	
 	// void WriteFirstByte(uint8_t data, uint16_t offsetAddress = 0);
 	// void WriteNextByte(uint8_t data);
 	bool WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount = RETRY_COUNT, bool showDebugData = true);
 	bool WriteShort(uint32_t addr, uint16_t data, bool showDebugData = true);
-    uint16_t WriteBytes(uint32_t addr, uint8_t* data, uint16_t length);
+    uint16_t WriteBytes(uint32_t addr, uint8_t* data, uint32_t length);
 
-    void EraseRam(uint32_t startAddress = 0x0, uint32_t length = SRAM_SIZE);
+    void Erase(uint32_t startAddress = 0x0, uint32_t length = SRAM_SIZE);
 
 private:
 	uint16_t counter = 0;

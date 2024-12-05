@@ -1,44 +1,48 @@
 #include "Console.hpp"
 
 
-size_t Console::write(uint8_t data)
+size_t Console::write(uint8_t data, bool useFrameBuffer)
 {
     return write(data, _fgColor, true);
 }
-size_t Console::write(uint8_t data, byte color, bool clearBackround)
+size_t Console::write(uint8_t data, byte color, bool clearBackround, bool useFrameBuffer)
 {
     auto pos = 1 << 19 | GetDataPos();
     EraseCursor();
     //Serial.print("Console: Writing data: "); Serial.print(data); Serial.print(" at position: 0x"); Serial.println(pos, HEX);
     if(data == 10 && _consoleRunning){
-        programmer.WriteByte( pos,data);
+        if(!useFrameBuffer)
+            programmer.WriteByte( pos,data);
         AdvanceCursor(true);
         return 1;
     }
     if(data == 13) return 0; 
 
-    graphics.drawText(_cursorX,_cursorY, data, color, clearBackround);
-    if(_consoleRunning) 
+    graphics.drawText(_cursorX,_cursorY, data, color, clearBackround, useFrameBuffer);
+    if(_consoleRunning && !useFrameBuffer) 
         programmer.WriteByte( pos,data); //write to data space
     AdvanceCursor();
 
     return 1;
 }
-size_t Console::write(uint8_t data, Color color, bool clearBackround)
+size_t Console::write(uint8_t data, Color color, bool clearBackround, bool useFrameBuffer)
 {
-    return write(data,color.ToByte(),clearBackround);
+    return write(data,color.ToByte(),clearBackround, useFrameBuffer);
 }
 
-size_t Console::write(const char *buffer, size_t size, Color color, bool clearBackground){
+size_t Console::write(const char *buffer, size_t size, Color color, bool clearBackground, bool useFrameBuffer){
     for(size_t idx = 0; idx < size; idx++)
-        write(buffer[idx], color, clearBackground);
+        write(buffer[idx], color, clearBackground, useFrameBuffer);
     return size;
 }
 
 size_t Console::write(const uint8_t *buffer, size_t size)
 {
+    //we want to write to a buffer, and then push the buffer of pixels out
     for(size_t idx = 0; idx < size; idx++)
-        write(buffer[idx]);
+        write(buffer[idx], _fgColor, true, true);
+
+    
     return size;
 }
 
@@ -109,16 +113,37 @@ ConsoleKeyAction Console::processPS2Key(uint8_t ps2KeyCode)
     }
 }
 
-void Console::_processKey(char keyVal){
+void Console::_drawTextFromRam()
+{
+    uint32_t pos = _scrollOffset * (graphics.settings.screenWidth / graphics.settings.charWidth);
+        uint32_t endPos = min(_lastIdx, (_windowHeight / graphics.settings.charHeight) * ((graphics.settings.screenWidth / graphics.settings.charWidth) + 1));
+        //check how many bytes we can fit, updat end pos accordingly.
+        char buf[BUFFER_SIZE];
+
+        _consoleRunning = false;        
+        _cursorY = 0;
+        clear();        
+        
+        //redraw the text from the scroll offset line
+        for(; pos < endPos ;pos+= BUFFER_SIZE){
+            auto length = programmer.ReadBytes(1 << 19 | pos, (uint8_t*)buf,min(BUFFER_SIZE, endPos - pos));
+            write(buf,length,true,false);
+        }
+        //graphics.render();
+        programmer.ReadByte(0x0); 
+        //graphics.render();
+        _consoleRunning = true;
+}
+
+void Console::_processKey(char keyVal)
+{
     Serial.print("Processing usb key: "); Serial.println(keyVal);
     write(keyVal);
 }
 
-
-
-
 bool Console::AdvanceCursor(bool nextLine)
 {
+    _lastIdx = max(GetDataPos(), _lastIdx);
     //see if we can move over one pixel to the right
     if (_cursorX + graphics.settings.charWidth < graphics.settings.screenWidth && !nextLine)
     {
@@ -134,26 +159,9 @@ bool Console::AdvanceCursor(bool nextLine)
 
     _cursorX = 0;
     //if we need to scroll down
-    if(_cursorY + graphics.settings.charHeight + 2  >= _windowHeight && _consoleRunning){
+    if(_cursorY + graphics.settings.charHeight + 2  >= graphics.settings.screenHeight - STATUS_BAR_HEIGHT  && _consoleRunning){
         _scrollOffset++;
-        uint32_t pos = _scrollOffset * (graphics.settings.screenWidth / graphics.settings.charWidth);
-        uint32_t endPos = GetDataPos();
-        char nextChar;
-        char buf[BUFFER_SIZE];
-
-        _consoleRunning = false;        
-        _cursorY = 0;
-        clear();        
-        
-        sprintf(buf,"Redrawing characters from offset %i to position %i", pos, endPos);
-        Serial.println(buf);
-        //redraw the text from the scroll offset line
-        for(; pos < endPos ;pos+= BUFFER_SIZE){
-            auto length = programmer.ReadBytes(1 << 19 | pos, (uint8_t*)buf,min(BUFFER_SIZE, endPos - pos));
-            write(buf,length);
-        }
-        programmer.ReadByte(0x0); 
-        _consoleRunning = true;
+        _drawTextFromRam();
     } else //otherwise move down one
         _cursorY += graphics.settings.charHeight;
     
@@ -180,7 +188,13 @@ bool Console::ReverseCursor()
 
 bool Console::MoveCursorUp()
 {
-    if(_cursorY < graphics.settings.charHeight + 1) return false;
+    if(_cursorY < graphics.settings.charHeight) 
+    {
+        if(_scrollOffset <= 0) return false;
+        
+        _scrollOffset--;
+        _drawTextFromRam();
+    }
     //get rid of current
     if(_cursorState){
         _cursorState = false;
@@ -195,7 +209,7 @@ bool Console::MoveCursorUp()
 
 bool Console::MoveCursorDown()
 {
-    if(_cursorY >= graphics.settings.screenHeight - graphics.settings.charHeight - 2 ) return false; //with 2px padding
+    if(_cursorY >= _windowHeight- graphics.settings.charHeight - 2 ) return false; //with 2px padding
     if(_cursorState){
         _cursorState = false;
         DrawCursor();
@@ -245,7 +259,7 @@ void Console::DrawCursor()
 
 void Console::EraseCursor()
 {
-    graphics.drawLine(_cursorX, _cursorY + graphics.settings.charHeight, _cursorX + graphics.settings.charWidth + 1, _cursorY + graphics.settings.charHeight,  Color::BLACK);
+    graphics.drawLine(_cursorX, _cursorY + graphics.settings.charHeight, _cursorX + graphics.settings.charWidth, _cursorY + graphics.settings.charHeight,  Color::BLACK);
 }
 
 size_t Console::print(const char* str)

@@ -120,20 +120,24 @@ void UI::DumpRAM() {
 	}
     Serial.print("Done dumping ram");
 }
-#define BUFFER_SIZE 256
-void UI::EraseRAM()
+//#define BUFFER_SIZE 512
+void UI::ClearScreen()
 {
-    byte rowBytes[BUFFER_SIZE];
-    memset(rowBytes, ERASE_BYTE,BUFFER_SIZE);
+    
+    byte rowBytes[graphics.settings.screenWidth];
+    memset(rowBytes, ERASE_BYTE,graphics.settings.screenWidth);
     unsigned long startTime = millis();
 	
-	Serial.print(F("Erasing RAM.."));
+	//graphics.clear();
+    
     
     for(uint16_t line = 0; line < graphics.settings.screenHeight + 10;line++){
-        
-        programmer.WriteBytes(line<< 8, rowBytes,BUFFER_SIZE);
+        programmer.WriteBytes(line << graphics.settings.horizontalBits, rowBytes,graphics.settings.screenWidth);
+        //programmer.Erase(line << graphics.settings.horizontalBits, graphics.settings.screenWidth);    
+    //     programmer.WriteBytes(line << graphics.settings.horizontalBits, rowBytes,BUFFER_SIZE);
     }
-	Serial.print(F(" : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
+    Serial.print(F(" : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
+	
 }
 
 void UI::ProcessInput() {
@@ -145,9 +149,11 @@ void UI::ProcessInput() {
 template <typename TPort>
 String UI::_getResponse(TPort port){
     String resp;
-    while(port.available())
+    unsigned long lastCharTime = millis();
+    while(port.available() && millis() - lastCharTime < 1000)
     {
         char c = port.read();
+        lastCharTime = millis();
         //Serial.print("Read "); Serial.println(c);
         resp += c;
     }
@@ -172,7 +178,8 @@ inline void UI::_processInput(TPort port)
 		while (!port.available()) {
 			blinkLED();
 		}
-		String addrS = _getResponse(port);
+		//String addrS = _getResponse(port);
+        String addrS = Serial.readString();
 		uint32_t addr = addrS.toInt();
 
 		byte data = programmer.ReadByte(addr);
@@ -185,14 +192,16 @@ inline void UI::_processInput(TPort port)
 
 		Serial.print("Enter address to write");
 		while (!port.available());
-		String addrS =  _getResponse(port);
+        String addrS = Serial.readString();
+		//String addrS =  _getResponse(port);
 		uint32_t addr = addrS.toInt();
         Serial.print(": "); Serial.println(addr,HEX);
 
 		Serial.print("Enter data to store in decimal form");
 		
 		while (!port.available());
-		String dataS =  _getResponse(port);
+        String dataS = Serial.readString();
+		//String dataS =  _getResponse(port);
 		byte data = dataS.toInt();
         Serial.print(": "); Serial.println(data, DEC);
         programmer.WriteByte(addr, data);
@@ -215,7 +224,7 @@ inline void UI::_processInput(TPort port)
 		//needPrintMenu = true;
 	}
 	else if (resp[0] =='e' || resp[0] =='E') {
-		EraseRAM();
+		ClearScreen();
 
 		Serial.println();
 		//needPrintMenu = true;
@@ -232,16 +241,16 @@ inline void UI::_processInput(TPort port)
         byte color = 0;
         unsigned long startTime = millis();
         for(uint16_t line = 0; line < graphics.settings.screenHeight;line++){
-            color = (line & 0x03) | (line *2 & 0x03) << 3 | (line%6 << 2);
+            color = (line & 0x03) | (line >> 3 & 0x03) << 3 | (line%12 << 2);
             //Serial.print("Drawing line on Y = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
             //memset(rowBytes,0,5);
             memset(rowBytes, color, graphics.settings.screenWidth);
-            programmer.WriteBytes(line<< 8, rowBytes,graphics.settings.screenWidth);
+            programmer.WriteBytes(line << graphics.settings.horizontalBits, rowBytes,graphics.settings.screenWidth);
             // for(byte x = 5; x < graphics.settings.screenWidth - 10; x++){
                 
-            //     programmer.WriteByte(line<< 8 | (x & 0xFF), color,1,false);
+            //     programmer.WriteByte(line<< graphics.settings.horizontalBits | (x & 0xFF), color,1,false);
             //     //delay(1);
-            //     //Serial.print(line << 8 | x,HEX); Serial.print(" ");                
+            //     //Serial.print(line << graphics.settings.horizontalBits | x,HEX); Serial.print(" ");                
             // }
             //Serial.println();
             //delay(10);
@@ -254,14 +263,14 @@ inline void UI::_processInput(TPort port)
         byte color = 1;
         unsigned long startTime = millis();
         for(uint16_t line = 0; line < graphics.settings.screenWidth;line++){   
-            for(int div = 0; div < 8; div++){
+            //for(int div = 0; div < 8; div++){
                 //Serial.print("Drawing line on X = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
                 memset(colBytes, color, graphics.settings.screenWidth);
-                for(int y = (graphics.settings.screenHeight / 8) * div; y < (graphics.settings.screenHeight / 8) * (div + 1); y++){
-                    programmer.WriteByte((y << 8) + line, colBytes[y]);
+                for(int y = 0; y < graphics.settings.screenHeight; y++){
+                    programmer.WriteByte((y << graphics.settings.horizontalBits) + line, colBytes[y]);
                 }
-                color+=2;
-            }         
+                //color+=2;
+            //}         
             color++;
         }
         Serial.print(F("Draw vertical lines : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
@@ -276,8 +285,8 @@ inline void UI::_processInput(TPort port)
 		
         unsigned long startTime = millis();
         for(uint16_t line = 0; line < graphics.settings.screenHeight;line++){
-            programmer.WriteBytes(line << 8, colors + line, graphics.settings.screenWidth - line); //write from 0 to end of colors            
-            programmer.WriteBytes((line << 8) + (graphics.settings.screenWidth - line - 1), colors, line );
+            programmer.WriteBytes(line << graphics.settings.horizontalBits, colors + line, graphics.settings.screenWidth - line); //write from 0 to end of colors            
+            programmer.WriteBytes((line << graphics.settings.horizontalBits) + (graphics.settings.screenWidth - line - 1), colors, line );
             
            //Serial.print("Drawing line on Y = "); Serial.println(line);
           
@@ -287,8 +296,8 @@ inline void UI::_processInput(TPort port)
 	}
     
     else if (resp[0] == 'b' || resp[0] == 'B') { //colors
-        int blockWidth = floor(graphics.settings.screenWidth / 16) + 1; //rather push off screen a bit
-        int blockHeight = floor((graphics.settings.screenHeight - 14) / 16);
+        int blockWidth = ceil(graphics.settings.screenWidth / 16) + 1; //rather push off screen a bit
+        int blockHeight = ceil((graphics.settings.screenHeight - 14) / 16);
         //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
         graphics.clear();
         int color = 0xFF;
@@ -297,14 +306,15 @@ inline void UI::_processInput(TPort port)
         
         unsigned long  startTime = millis();
         for(int x = 1; x < graphics.settings.screenWidth; x+= blockWidth){
-            for(int y=1;y < graphics.settings.screenHeight - 14; y+= blockHeight){ 
+            for(int y=1;y < blockHeight * 16; y+= blockHeight){ 
                 graphics.fillRect(x,y, blockWidth, blockHeight,color);
-                // memset(label,0,3);
-                // sprintf(label, "%i", color);
-                // graphics.drawText(x + 1, y, label,Color::WHITE, false);
+                memset(label,0,3);
+                sprintf(label, "%i", color);
+                graphics.drawText(x + 1, y, label,Color::WHITE, false);
                 color--;
             }               
         }
+        //graphics.render();
         Serial.print(F("Blocks : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
         
         console.SetPosition(3, graphics.settings.screenHeight - 9, false);

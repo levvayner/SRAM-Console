@@ -1,6 +1,25 @@
 #include "VRAM.h"
 #include "math.h"
-void VRAM::drawText(int x, int y, const char *text, byte color, bool clearBackground )
+VRAM::VRAM()
+{
+    
+
+}
+VRAM::~VRAM()
+{
+    free(_frameBuffer);
+}
+void VRAM::begin(){
+    // _frameBuffer = (uint8_t *)malloc((settings.screenWidth- 20) * (settings.screenHeight - 20));
+    // if(_frameBuffer == NULL){
+    //     Serial.print("Failed to init frame buffer!");
+    // }
+    // else {
+    //     memset(_frameBuffer, ERASE_BYTE, (settings.screenWidth - 20) * (settings.screenHeight - 20));
+    //     Serial.print("Initialized frame buffer with "); Serial.print(settings.screenWidth * settings.screenHeight); Serial.println(" bytes");
+    // }
+}
+void VRAM::drawText(int x, int y, const char *text, byte color, bool clearBackground, bool useFrameBuffer)
 {
     uint16_t charOffsetY = 0, charOffsetX = 0;   
     //for each character
@@ -16,10 +35,16 @@ void VRAM::drawText(int x, int y, const char *text, byte color, bool clearBackgr
             for(int charY = 0; charY < settings.charHeight; charY++){
                 byte isSet = (column & (1 << charY)) > 0;
                 if(!isSet && !clearBackground) continue;
-                WriteByte(((y + charOffsetY + charY) << 8) + x + charOffsetX + charX, isSet ? color : 0);
+                if(useFrameBuffer)
+                    _frameBuffer[((y + charOffsetY + charY) * settings.screenWidth) + x + charOffsetX + charX] =  isSet ? color : 0;
+                else
+                    WriteByte(((y + charOffsetY + charY) << settings.horizontalBits) + x + charOffsetX + charX, isSet ? color : 0);
             }
             if(clearBackground)
-                WriteByte(((y + charOffsetY + settings.charHeight) << 8) + x + charOffsetX + charX, 0);
+                if(useFrameBuffer)
+                     _frameBuffer[((y + charOffsetY + settings.charHeight) * settings.screenWidth) + x + charOffsetX + charX] =  0;
+                else
+                    WriteByte(((y + charOffsetY + settings.charHeight) << settings.horizontalBits) + x + charOffsetX + charX, 0);
             
         }
 
@@ -38,25 +63,25 @@ void VRAM::drawText(int x, int y, const char *text, byte color, bool clearBackgr
         }
     }
 }
-void VRAM::drawText(int x, int y, const char *text, Color color, bool clearBackground )
+void VRAM::drawText(int x, int y, const char *text, Color color, bool clearBackground, bool useFrameBuffer )
 {
-    drawText(x, y, text, color.ToByte(), clearBackground);
+    drawText(x, y, text, color.ToByte(), clearBackground, useFrameBuffer);
 }
-void VRAM::drawText(int x, int y, char value, byte color, bool clearBackground)
+void VRAM::drawText(int x, int y, char value, byte color, bool clearBackground, bool useFrameBuffer)
 {
     char buf[2];
     sprintf(buf,"%c",value);
-    drawText(x, y, buf, color, clearBackground);    
+    drawText(x, y, buf, color, clearBackground, useFrameBuffer);    
 }
-void VRAM::drawText(int x, int y, char value, Color color, bool clearBackground)
+void VRAM::drawText(int x, int y, char value, Color color, bool clearBackground, bool useFrameBuffer)
 {
-    drawText(x, y, value, color.ToByte(), clearBackground);
+    drawText(x, y, value, color.ToByte(), clearBackground, useFrameBuffer);
 }
 bool VRAM::drawPixel(int x, int y, byte color)
 {
     if(x < 0 || x > settings.screenWidth) return false;
     if(y < 0 || y > settings.charHeight) return false;
-    return WriteByte((y << 8) + x, color);
+    return WriteByte((y << settings.horizontalBits) + x, color);
 }
 
 bool VRAM::drawPixel(int x, int y, Color color)
@@ -77,7 +102,7 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
         byte length = abs(x2 - x1);
         uint8_t buf[length];
         memset(buf,color,length);
-        WriteBytes((y1 << 8) + (x1 > x2 ? x2 : x1),buf,length);
+        WriteBytes((y1 << settings.horizontalBits) + (x1 > x2 ? x2 : x1),buf,length);
         return true;
     }
     double slope = (double)(y2 - y1) / double(x2 - x1);
@@ -139,19 +164,17 @@ bool VRAM::drawRect(int x1, int y1, int width, int height, byte color)
     int clipHeight = height;
     if(settings.screenWidth - (width + x1) < width) clipWidth = settings.screenWidth - x1;
     if(settings.screenHeight - (y1 + height) < height) clipHeight = settings.screenHeight - y1; 
-    
-    //Serial.print("Set clip width to "); Serial.println(clipWidth);
+
     byte buf[clipWidth];
     memset(buf,color, clipWidth);
-    WriteBytes((y1 << 8) + x1, buf, clipWidth);
-    if(clipHeight == height)
-        WriteBytes(((y1 + height) << 8) + x1, buf, clipWidth);
+    WriteBytes((y1 << settings.horizontalBits) + x1, buf, clipWidth);
+    
+    WriteBytes(((y1 + clipHeight) << settings.horizontalBits) + x1, buf, clipWidth);
 
     //draw pixeled left and right
-    for(byte y=y1; y < y1 + height; y++){
-        WriteByte((y << 8) + x1, color);
-        if(clipWidth == width)
-            WriteByte((y << 8) + x1 + width, color);
+    for(byte y=y1; y < y1 + clipHeight; y++){
+        WriteByte((y << settings.horizontalBits) + x1, color);        
+        WriteByte((y << settings.horizontalBits) + x1 + clipWidth, color);
     }
 
     return true;
@@ -182,7 +205,7 @@ bool VRAM::fillRect(int x1, int y1, int width, int height, byte color)
     memset(buf,color, width);
 
     for(int y=y1; y < y1 + height; y++){
-        WriteBytes((y << 8) + x1, buf, width);
+        WriteBytes((y << settings.horizontalBits) + x1, buf, width);
     }  
     return true;  
 }
@@ -219,7 +242,7 @@ bool VRAM::drawArc(int x, int y, int startAngle, int endAngle, int radius, byte 
         auto xVal = (x + (radius * cos(radian)));
         if(xVal <= 0 || yVal <= 0 || xVal >= settings.screenWidth || yVal >= settings.screenHeight)
             continue; // do not render off-screen content
-        WriteByte((int) yVal << 8 | (byte)xVal, color);
+        WriteByte((int) yVal << settings.horizontalBits | (uint16_t)xVal, color);
     }
     return false;
 }
@@ -242,13 +265,23 @@ bool VRAM::fillCircle(int centerX, int centerY, int radius, byte color)
                 data[(pxlX - boundRect.x1)] = color;
             }
             else {
-                data[(pxlX - boundRect.x1)] = ReadByte((pxlY << 8) + pxlX);
+                data[(pxlX - boundRect.x1)] = ReadByte((pxlY << settings.horizontalBits) + pxlX);
             }
         }
-        WriteBytes((pxlY << 8) + boundRect.x1, data, boundRect.width());
+        WriteBytes((pxlY << settings.horizontalBits) + boundRect.x1, data, boundRect.width());
     }
 
  
 
     return false;
+}
+
+void VRAM::render()
+{
+    unsigned long startTime = millis();
+    Serial.print("Rendering frame .. ");
+    for(uint8_t line = 0; line < settings.screenHeight; line++){
+        WriteBytes(line << settings.horizontalBits, _frameBuffer + (line * settings.screenWidth), settings.screenWidth);
+    }
+    Serial.print(" completed in "); Serial.print(millis() - startTime); Serial.println(" ms.");
 }

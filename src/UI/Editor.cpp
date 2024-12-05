@@ -196,7 +196,7 @@ void Editor::_drawCursorPosition(){
     memset(buf,0,9);
     graphics.fillRect(6* (graphics.settings.charWidth) + 4, graphics.settings.screenHeight - 9, 18, 8,Color::LIME);    
     sprintf(buf,"%i",_cursorX); 
-    graphics.drawText((6* (graphics.settings.charWidth) + 5), graphics.settings.screenHeight - 9, buf, Color::YELLOW, false);
+    graphics.drawText((6* (graphics.settings.charWidth) + 5), graphics.settings.screenHeight - 9, buf, Color::NAVY_BLUE, false);
     //_printChars(buf,Color::YELLOW, (6* (graphics.settings.charWidth) + 5), graphics.settings.screenHeight - 9, false);      
     
     
@@ -204,7 +204,7 @@ void Editor::_drawCursorPosition(){
     memset(buf,0,9);
     graphics.fillRect(10* (graphics.settings.charWidth), graphics.settings.screenHeight - 9, 18, 8,Color::LIME);    
     sprintf(buf,"%i",_cursorY);    
-    graphics.drawText((10 * (graphics.settings.charWidth) + 1), graphics.settings.screenHeight - 9, buf, Color::YELLOW, false);
+    graphics.drawText((10 * (graphics.settings.charWidth) + 1), graphics.settings.screenHeight - 9, buf, Color::NAVY_BLUE, false);
     //_printChars(buf,Color::YELLOW, (9 * (graphics.settings.charWidth)) + 7, graphics.settings.screenHeight - 9, false);   
 
     sprintf(buf,"%i, %i", _cursorX, _cursorY);

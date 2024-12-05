@@ -33,9 +33,10 @@ class Console : Print{
 
     public:
     void run(bool blocking = true);
-    virtual size_t write(uint8_t data, byte color, bool clearBackround = false);
-    virtual size_t write(uint8_t data, Color color, bool clearBackround = false);
-    virtual size_t write(uint8_t data);
+    virtual size_t write(uint8_t data, byte color, bool clearBackround = false, bool useFrameBuffer = false);
+    virtual size_t write(uint8_t data, Color color, bool clearBackround = false, bool useFrameBuffer = false);
+    virtual size_t write(uint8_t data, bool useFrameBuffer);
+    virtual inline  size_t write(uint8_t data){ return write(data, _fgColor, true, false);}
     virtual size_t write(const char *str) {
       if (str == NULL) return 0;
       return write((const uint8_t *)str, strlen(str));
@@ -46,7 +47,7 @@ class Console : Print{
     }
 
     //virtual size_t write(const uint8_t *buffer, size_t size, Color color);
-    size_t write(const char *buffer, size_t size, Color color, bool clearBackground = true);
+    size_t write(const char *buffer, size_t size, Color color, bool clearBackground = true, bool useFrameBuffer = false);
     
     size_t print(const __FlashStringHelper *);
     size_t print(const String &);
@@ -73,8 +74,8 @@ class Console : Print{
     size_t println(const Printable&);
     size_t println(void);
 
-    virtual inline void clear(){ programmer.EraseRam(0, _windowHeight << 8);}
-    virtual inline void clearData(){ programmer.EraseRam(1<<19, graphics.settings.screenBufferHeight * graphics.settings.screenWidth);}
+    virtual inline void clear(){ programmer.Erase(0, _windowHeight << graphics.settings.horizontalBits);}
+    virtual inline void clearData(){ programmer.Erase(1<<19, graphics.settings.screenBufferHeight * (graphics.settings.screenWidth/graphics.settings.charWidth));}
 
     virtual inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ _cursorX = x; _cursorY = y; }
     virtual void processUSBKey(); //
@@ -108,8 +109,8 @@ class Console : Print{
 
     protected:
     byte _fgColor = 240;
-    byte _cursorX = 0;
-    byte _cursorY = 0;
+    uint16_t _cursorX = 0;
+    uint16_t _cursorY = 0;
 
     bool _cursorState = false;
     bool _cursorVisible = true;
@@ -264,7 +265,7 @@ class Console : Print{
     }
 
     private:
-    
+    void _drawTextFromRam();
     void _processKey(char keyVal);
 
 
@@ -272,6 +273,7 @@ class Console : Print{
     
     bool _consoleRunning = false;    
     
+    uint16_t _lastIdx = 0;
     uint16_t _scrollOffset = 0;
     uint16_t _windowHeight = 240;
     
