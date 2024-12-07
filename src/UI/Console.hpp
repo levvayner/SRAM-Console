@@ -33,10 +33,10 @@ class Console : Print{
 
     public:
     void run(bool blocking = true);
-    virtual size_t write(uint8_t data, byte color, bool clearBackround = false, bool useFrameBuffer = false);
-    virtual size_t write(uint8_t data, Color color, bool clearBackround = false, bool useFrameBuffer = false);
+    virtual size_t write(uint8_t data, byte color, byte backgroundColor, bool clearBackround = false, bool useFrameBuffer = false);
+    virtual size_t write(uint8_t data, Color color, Color backgroundColor, bool clearBackround = false, bool useFrameBuffer = false);
     virtual size_t write(uint8_t data, bool useFrameBuffer);
-    virtual inline  size_t write(uint8_t data){ return write(data, _fgColor, true, false);}
+    virtual inline  size_t write(uint8_t data){ return write(data,textColor, backgroundColor, true, false);}
     virtual size_t write(const char *str) {
       if (str == NULL) return 0;
       return write((const uint8_t *)str, strlen(str));
@@ -47,7 +47,7 @@ class Console : Print{
     }
 
     //virtual size_t write(const uint8_t *buffer, size_t size, Color color);
-    size_t write(const char *buffer, size_t size, Color color, bool clearBackground = true, bool useFrameBuffer = false);
+    size_t write(const char *buffer, size_t size, Color color, Color backgroundColor, bool clearBackground = true, bool useFrameBuffer = false);
     
     size_t print(const __FlashStringHelper *);
     size_t print(const String &);
@@ -74,10 +74,14 @@ class Console : Print{
     size_t println(const Printable&);
     size_t println(void);
 
-    virtual inline void clear(){ programmer.Erase(0, _windowHeight << graphics.settings.horizontalBits);}
+    virtual inline void clear(){ programmer.Erase(0, (_windowHeight + 1) << graphics.settings.horizontalBits);}
     virtual inline void clearData(){ programmer.Erase(1<<19, graphics.settings.screenBufferHeight * (graphics.settings.screenWidth/graphics.settings.charWidth));}
 
     virtual inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ _cursorX = x; _cursorY = y; }
+    virtual inline void SetColor(byte color){ textColor = color;}
+    virtual inline void SetColor(Color color){ textColor = color.ToByte();}
+    virtual inline void SetBackgroundColor(byte color){  backgroundColor = color;}
+    virtual inline void SetBackgroundColor(Color color){ backgroundColor = color.ToByte();}
     virtual void processUSBKey(); //
     virtual ConsoleKeyAction processPS2Key(uint8_t ps2KeyCode); //
     inline bool IsConsoleRunning(){ return _consoleRunning;}
@@ -108,9 +112,11 @@ class Console : Print{
 
 
     protected:
-    byte _fgColor = 240;
+    byte textColor = 240;
+    byte backgroundColor = Color::BLACK;
     uint16_t _cursorX = 0;
     uint16_t _cursorY = 0;
+    uint32_t charsPerLine = 72;//  floor(graphics.settings.screenWidth / graphics.settings.charWidth);
 
     bool _cursorState = false;
     bool _cursorVisible = true;
@@ -151,7 +157,7 @@ class Console : Print{
                         case 0x50: //F1
                         case 0x51: //F2
                         {
-                            _fgColor++;   
+                            textColor++; 
                             return ConsoleKeyAction::ColorChange;                         
                         }
                             

@@ -6,20 +6,21 @@
 
 
 struct Point{
-    int x;
-    int y;
+    uint16_t x;
+    uint16_t y;
     Point(int x, int y){ this->x = x; this->y = y;}
 };
 
 struct Rectangle{
     public:
-    int x1;
-    int x2;
-    int y1;
-    int y2;
+    uint16_t x1;
+    uint16_t x2;
+    uint16_t y1;
+    uint16_t y2;
 
-    int width(){ return abs(x2 - x1);}
-    int height(){ return abs(y2 - y1);}
+    uint32_t width(){ return abs(x2 - x1);}
+    uint32_t height(){ return abs(y2 - y1);}
+    uint32_t size() { return width() * height();}
 
     Rectangle(Point p1, Point p2){
         x1 = p1.x;
@@ -27,7 +28,7 @@ struct Rectangle{
         y1 = p1.y;
         y2 = p2.y;
     }
-    Rectangle( int x1, int y1, int x2, int y2){
+    Rectangle( uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2){
         this->x1 = x1;
         this->x2 = x2;
         this->y1 = y1;
@@ -37,16 +38,16 @@ struct Rectangle{
 
 
 struct VRAMSettings{
-    int screenWidth = 432;
-    int screenHeight = 240;
-    int charWidth = 6;
-    int charHeight = 9;
-    int screenBufferHeight = 3000;
-    int horizontalBits = 10;
+    uint16_t screenWidth = 432;
+    uint16_t screenHeight = 240;
+    uint16_t charWidth = 6;
+    uint16_t charHeight = 9;
+    uint16_t screenBufferHeight = 3000;
+    uint16_t horizontalBits = 10;
 };
 
 
-class VRAM : SRAM{
+class VRAM : public SRAM{
     
     public:
         VRAMSettings settings;
@@ -56,11 +57,18 @@ class VRAM : SRAM{
 
         void begin();
 
-        void drawText(int x, int y, const char * text, byte color = 0xFF, bool clearBackground = true, bool useFrameBuffer = false);
-        void drawText(int x, int y, const char * text, Color color = Color::WHITE, bool clearBackground = true, bool useFrameBuffer = false);
+        
 
-        void drawText(int x, int y, char value, byte color = 0xFF, bool clearBackground = true, bool useFrameBuffer = false);
-        void drawText(int x, int y, char value, Color color = Color::WHITE, bool clearBackground = true, bool useFrameBuffer = false);
+        void drawText(int x, int y, const char * text, byte color = 0xFF, byte backgroundColor = 0x0, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
+        void drawText(int x, int y, const char * text, Color color = Color::WHITE, Color backgroundColor = Color::BLACK, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
+
+        void drawText(int x, int y, char text, byte color = 0xFF, byte backgroundColor = 0x0, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
+        void drawText(int x, int y, char text, Color color = Color::WHITE, Color backgroundColor = Color::BLACK, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
+
+        void drawTextToBuffer(const char * text, byte* buffer,  uint16_t stride, byte color);
+        void drawTextToBuffer(const char * text, const byte * colors, byte* buffer,  uint16_t stride);
+
+        void drawBuffer(int x, int y, int width, int height, const byte* buffer);
 
         bool drawPixel(int x, int y, byte color = 0xFF);
         bool drawPixel(int x, int y, Color color);
@@ -83,8 +91,8 @@ class VRAM : SRAM{
         bool fillRect (Point topLeft, Point bottomRight, byte color = 0xFF);
         bool fillRect (Point topLeft, Point bottomRight, Color color =Color::WHITE);
 
-        bool drawCircle(int x, int y, int radius, byte color = 0xFF);
-        bool drawCircle(int x, int y, int radius, Color color = Color::WHITE);
+        bool drawCircle(int centerX, int centerY, int radius, byte color = 0xFF);
+        bool drawCircle(int centerX, int centerY, int radius, Color color = Color::WHITE);
 
         bool drawArc(int x, int y, int startAngle, int endAngle, int radius, byte color = 0xFF);
         bool drawArc(int x, int y, int startAngle, int endAngle, int radius, Color color = Color::WHITE);
@@ -94,7 +102,9 @@ class VRAM : SRAM{
 
         
 
-        bool clear(int x1 = 0, int y1 = 0, int width = 420, int height = 242){
+        bool clear(int x1 = 0, int y1 = 0, int width = 0, int height = 0){
+            if(width == 0) width = settings.screenWidth - x1 + 1;
+            if(height == 0) height = settings.screenHeight - y1 + 1;
             return fillRect(x1, y1, width, height, Color::BLACK);
         }
 

@@ -2,7 +2,7 @@
 #include "UI/UI.h"
 
 #define NOP __asm__ __volatile__ ("nop\n\t")
-
+#define isascii(c)  ((c & ~0x7F) == 0)
 extern UI ui;
 // #if defined(ARDUINO_SAM_DUE)
 // #define PORTA POIA
@@ -34,15 +34,35 @@ SRAM::SRAM()
     PMC->PMC_PCER0 |= PMC_PCER0_PID13;
     PMC->PMC_PCER0 |= PMC_PCER0_PID14;
 
-    // pinMode(6, OUTPUT);
-    // pinMode(7, OUTPUT);
-    // pinMode(8, OUTPUT);
-    // pinMode(9, OUTPUT);
-    // digitalWrite(6, LOW);
-    // digitalWrite(7, LOW);
-    // digitalWrite(8, LOW);
-    // digitalWrite(9, LOW);
 
+
+    //enable and set as input, diable pullup D16, SCREEN_VISIBLE (active LOW)
+    PIOA->PIO_PER = PIO_PA13;
+    PIOA->PIO_ODR = PIO_PA13;
+    PIOA->PIO_PUDR = PIO_PA13;
+
+    //pinMode(16,INPUT);
+    //enable and set as input, diable pullup D15, VERTICAL_VISIBLE (active LOW)
+    PIOD->PIO_PER = PIO_PD5;
+    PIOD->PIO_ODR = PIO_PD5;
+    PIOD->PIO_PUDR = PIO_PD5;
+
+    //enable and set as input, diable pullup D14, HORIZONTAL_VISIBLE (active HIGH)
+    PIOD->PIO_PER = PIO_PD4;
+    PIOD->PIO_ODR = PIO_PD4;
+    PIOD->PIO_PUDR = PIO_PD4;
+
+    //enable and set as output D4 WE
+    PIOA->PIO_PER = PIO_PA29;
+    PIOA->PIO_OER = PIO_PA29;
+
+    //enable and set as output D2 OE
+    PIOA->PIO_PER = PIO_PB25;
+    PIOA->PIO_OER = PIO_PB25;
+
+    //enable and set as output D3 CE
+    PIOC->PIO_PER = PIO_PC28;
+    PIOC->PIO_OER = PIO_PC28; 
 
     #if defined(SCREEN_OUTPUT)
     pinMode(SCREEN_OUTPUT, INPUT);
@@ -58,10 +78,11 @@ SRAM::~SRAM()
 #pragma region SRAM Chip Methods
 
 void SRAM::DeviceOff() {
-	digitalWrite(PIN_WE, LOW);
-	digitalWrite(PIN_OE, LOW);
+
+    PIOA->PIO_CODR = PIO_PA29;
+    PIOB->PIO_CODR = PIO_PB25;
     #ifdef PIN_CE
-	digitalWrite(PIN_CE, LOW);
+    PIOC->PIO_CODR = PIO_PC28;
     #endif
     
     //set pins as input
@@ -73,19 +94,16 @@ void SRAM::DeviceOff() {
 void SRAM::DeviceOutput() {
 	if (ramState == dsOutput) //if alredy in output mode, skip
 	{
-		//Serial.println("Already in output mode, skip setting mode");
-		return;
+        return;
 	}
-    //while(!digitalRead(SCREEN_OUTPUT)); //wait until blanking period
-	// digitalWrite(PIN_OE, LOW);
-	// digitalWrite(PIN_WE, LOW); //do in procedure
 
     //set pins as input
     PIOC->PIO_ODR |= (0xFF << 1);
     
 	if (ramState == dsOff) {
         #ifdef PIN_CE
-		digitalWrite(PIN_CE, HIGH); 
+        PIOC->PIO_SODR = PIO_PC28;
+		//digitalWrite(PIN_CE, HIGH); 
         #endif
 	} //make sure chip is enabled
 	
@@ -98,16 +116,14 @@ void SRAM::DeviceWrite() {
 		Serial.println("Already in write mode, skip setting mode");
 		return;
 	}
-	// while(!digitalRead(SCREEN_OUTPUT)); //wait until blanking period
-	// digitalWrite(PIN_WE, LOW);
-	// digitalWrite(PIN_OE, LOW); //do in procedure
 
     //set pins as output
     PIOC->PIO_OER |= 0xFF << 1;
     
 	if (ramState == dsOff) {
         #ifdef PIN_CE
-		digitalWrite(PIN_CE, HIGH); 		
+        PIOC->PIO_SODR = PIO_PC28;        
+		//digitalWrite(PIN_CE, HIGH); 		
         #endif
 	} //make sure chip is enabled
 
@@ -137,12 +153,6 @@ void SRAM::SetAddress(uint32_t addr) {
     //Address bits 16-19: Port C, pins 21-25 (unverified)
     REG_PIOC_CODR = 0xF << 21;
     REG_PIOC_SODR = ((addr >> 16) & 0xF) << 21;
-     // digitalWrite(6, (addr >> 19) & 0x1);
-    // digitalWrite(7, (addr >> 18) & 0x1);
-    // digitalWrite(8, (addr >> 17) & 0x1);
-    // // digitalWrite(8, LOW);
-    // digitalWrite(9, (addr >> 16) & 0x1);
-
     //tAA = 80ns	
     #endif
 
@@ -165,7 +175,8 @@ void SRAM::SetDataLines(uint8_t data) {
 uint8_t SRAM::ReadByte(uint32_t addr) {
 	DeviceOutput();
 	SetAddress(addr);
-	digitalWrite(PIN_OE, HIGH);
+    PIOB->PIO_SODR = PIO_PB25;
+	//digitalWrite(PIN_OE, HIGH);
     //tOE = 35ns, @84Mhz 1 tick is 1.2e-8s or 12ns. 3 clocks will pass at least
     #ifdef USE_PORT_IO
         uint8_t readValue = PINL;
@@ -182,8 +193,9 @@ size_t SRAM::ReadBytes(uint32_t addr, uint8_t *buffer, uint32_t length)
     DeviceOutput();
     uint32_t endAddr = addr + length;
     uint32_t curAddr = addr;
-    uint8_t val;
-    digitalWrite(PIN_OE, HIGH);
+    
+    PIOB->PIO_SODR = PIO_PB25;
+    //digitalWrite(PIN_OE, HIGH);
     //tOE = 35ns, @84Mhz 1 tick is 1.2e-8s or 12ns. 3 clocks will pass at least
     while(curAddr < endAddr){
         SetAddress(curAddr);
@@ -192,10 +204,11 @@ size_t SRAM::ReadBytes(uint32_t addr, uint8_t *buffer, uint32_t length)
         #ifdef USE_PORT_IO
             uint8_t readValue = PINL;
         #else        
+            
             PIOC->PIO_ODR |= (0xFF << 1);
-            val =  (PIOC->PIO_PDSR >> 1) & 0xFF;
+            buffer[curAddr - addr] = (PIOC->PIO_PDSR >> 1) & 0xFF;            
             //Serial.print("Read byte 0x"); Serial.print(val); Serial.print(" at index "); Serial.print(curAddr - addr); Serial.print(" from address 0x");	  Serial.println(curAddr, HEX);
-            buffer[curAddr - addr] = val;
+           
         #endif
         curAddr++;
     }
@@ -203,56 +216,93 @@ size_t SRAM::ReadBytes(uint32_t addr, uint8_t *buffer, uint32_t length)
 	return curAddr - addr;
 }
 
-uint16_t SRAM::WriteBytes(uint32_t addr, uint8_t *data, uint32_t length)
+uint16_t SRAM::WriteBytes(uint32_t addr, uint8_t *data, uint32_t length, BusyType busyType)
 {
+    //write buffer to screen
+    #if defined(DEBUG_SRAM)
+    unsigned long startTime, runTime;
+    #endif
+    while(Busy(busyType)); //wait for screen to not be drawing
+    #if defined(DEBUG_SRAM)
+    startTime = micros();
+    #endif
     DeviceWrite();
     uint16_t idx = 0;
     
     while(idx < length){
-        // if(!digitalRead(SCREEN_OUTPUT)) //wait until blanking period)
-        // {
-        //     DeviceOff();
-        //     while(!digitalRead(SCREEN_OUTPUT));
-        // }
         
         SetAddress(addr);
         SetDataLines(data[idx]);
-        //toggle WE low for 100ns - 1000ns
-        //give 1us for setup time
-        digitalWrite(PIN_WE, HIGH);
-        //delayMicroseconds(1);		
-        NOP;
-        digitalWrite(PIN_WE, LOW);
+        PIOA->PIO_SODR = PIO_PA29;
+        //NOP;
+        PIOA->PIO_CODR = PIO_PA29;
+        
+        // digitalWrite(PIN_WE, HIGH);
+        // digitalWrite(PIN_WE, LOW);
         idx++;
         addr++;       
     } ;
     DeviceOff();	
+    #if defined(DEBUG_SRAM)
+    runTime = micros() - startTime;
+        Serial.print("Wrote "); Serial.print(length); Serial.print(" bytes to screen in "); Serial.print(runTime); Serial.println(" microseconds");
+    #endif
+    return idx;
+}
+
+uint16_t SRAM::FillBytes(uint32_t startAddr, uint8_t data, uint32_t length, BusyType busyType)
+{
+    //write buffer to screen
+    #if defined(DEBUG_SRAM)
+    unsigned long startTime, runTime;
+    #endif
+    while(Busy(busyType)); //wait for screen to not be drawing
+    #if defined(DEBUG_SRAM)
+    startTime = micros();
+    #endif
+    DeviceWrite();
+    uint16_t idx = 0;
+    uint32_t addr = startAddr;
+    SetDataLines(data);
     
-   
-   return idx;
+    while(idx < length){
+        SetAddress(addr);        
+        PIOA->PIO_SODR = PIO_PA29;
+        //NOP;
+        PIOA->PIO_CODR = PIO_PA29;
+        //digitalWrite(PIN_WE, HIGH);
+        //NOP;
+        //digitalWrite(PIN_WE, LOW);
+        idx++;
+        addr++;       
+    } ;
+    DeviceOff();	
+    #if defined(DEBUG_SRAM)
+    runTime = micros() - startTime;
+        Serial.print("Filled "); Serial.print(length); Serial.print(" bytes to screen in "); Serial.print(runTime); Serial.println(" microseconds");
+    #endif
+    return idx;
 }
 
 void SRAM::Erase(uint32_t startAddress, uint32_t length)
 {
     //Serial.print(F("Erasing RAM from 0x"));Serial.print(startAddress, HEX); Serial.print(F(" to 0x")); Serial.print(startAddress + length,HEX);
     // unsigned long startTime = millis();
-    byte rowBytes[BUFFER_SIZE];
     uint32_t pos = 0;
     uint32_t idx = 0;
     uint32_t minLegth = 0;
 
-    memset(rowBytes, ERASE_BYTE,BUFFER_SIZE);
+    SetDataLines(ERASE_BYTE);
     DeviceWrite();
     for(pos = startAddress; pos < startAddress + length ;){  
         idx = 0;
         minLegth =  min(BUFFER_SIZE, length - pos);
     
         while(idx <  minLegth){
-            SetAddress(pos + idx);
-            SetDataLines(rowBytes[idx]);
-            digitalWrite(PIN_WE, HIGH);
-            NOP;
-            digitalWrite(PIN_WE, LOW);
+            SetAddress(pos + idx);           
+            PIOA->PIO_SODR = PIO_PA29;
+            //NOP;
+            PIOA->PIO_CODR = PIO_PA29;
             idx++;            
         };       
         pos += minLegth;
@@ -263,18 +313,18 @@ void SRAM::Erase(uint32_t startAddress, uint32_t length)
 }
 
 
-bool SRAM::WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount, bool showDebugData) {
+bool SRAM::WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount, BusyType busyType) {
 	_retries = 0;
 	bool done = false;
+    while(Busy(busyType)); //wait for screen to not be drawing
     DeviceWrite();
 	//while (_retries <= retryCount && !done) {		        
         SetAddress(addr);
 		SetDataLines(data);
 		//toggle WE low for 100ns - 1000ns
-		digitalWrite(PIN_WE, HIGH);
-        //tCW 70ns        
-		NOP; //delayMicroseconds(1);		
-		digitalWrite(PIN_WE, LOW);
+		PIOA->PIO_SODR = PIO_PA29;
+        NOP;
+        PIOA->PIO_CODR = PIO_PA29;
 		
 
 

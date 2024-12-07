@@ -36,8 +36,8 @@
 #define PIN_WE		4	//ACTIVE HIGH	- pull down for 100ns - 1000ns *AFTER* setting address and data. OE should be HIGH. CE should be HIGH.
 #define PIN_OE		2	//ACTIVE HIGH	- pull down *AFTER* setting address and data. WE should be HIGH. CE should be HIGH.
 
-#define PS2_DATA 19
-#define PS2_CLK  18
+#define PS2_DATA 18
+#define PS2_CLK  19
 
 //#define SCREEN_OUTPUT 19 //ACTIVE LOW, when low, cannot write to ram!
 

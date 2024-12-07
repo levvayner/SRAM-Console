@@ -1,5 +1,5 @@
-#ifndef _fgColor_H_
-#define _fgColor_H_
+#ifndef textColor_H_
+#define textColor_H_
 #include "stdint.h"
 
 class Color {
@@ -8,10 +8,18 @@ class Color {
     Color(uint8_t red, uint8_t green, uint8_t blue);
     Color(uint8_t color);
     Color(Color *source);
+
+    
         
     inline uint8_t Red(){ return _red;}
     inline uint8_t Green(){ return _green;}
     inline uint8_t Blue(){ return _blue;}
+
+    inline void FromByte(uint8_t color){
+        _red = (color & 0x7);
+        _green = (color >> 3) & 0x7;
+        _blue = (color >> 6) & 0x3;
+    }
 
     inline uint8_t ToByte(){ return (_red << 5) | ((_green & 0x7) << 2) | (_blue & 0x3);}
 

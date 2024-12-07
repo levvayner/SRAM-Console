@@ -4,6 +4,8 @@
 
 UI::UI()
 {
+    console.SetColor(Color::GREEN);
+    console.SetBackgroundColor(Color::BLACK);
 }
 
 
@@ -123,18 +125,11 @@ void UI::DumpRAM() {
 //#define BUFFER_SIZE 512
 void UI::ClearScreen()
 {
-    
-    byte rowBytes[graphics.settings.screenWidth];
-    memset(rowBytes, ERASE_BYTE,graphics.settings.screenWidth);
     unsigned long startTime = millis();
-	
-	//graphics.clear();
+	Serial.print(F("Clearning screen"));    
     
-    
-    for(uint16_t line = 0; line < graphics.settings.screenHeight + 10;line++){
-        programmer.WriteBytes(line << graphics.settings.horizontalBits, rowBytes,graphics.settings.screenWidth);
-        //programmer.Erase(line << graphics.settings.horizontalBits, graphics.settings.screenWidth);    
-    //     programmer.WriteBytes(line << graphics.settings.horizontalBits, rowBytes,BUFFER_SIZE);
+    for(uint16_t line = 0; line < graphics.settings.screenHeight + 1;line++){
+        programmer.FillBytes(line << graphics.settings.horizontalBits, ERASE_BYTE,graphics.settings.screenWidth);
     }
     Serial.print(F(" : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 	
@@ -237,15 +232,12 @@ inline void UI::_processInput(TPort port)
 		//needPrintMenu = true;
 	} 
     else if (resp[0] == 'l' || resp[0] == 'L') {
-		byte rowBytes[graphics.settings.screenWidth];
         byte color = 0;
         unsigned long startTime = millis();
         for(uint16_t line = 0; line < graphics.settings.screenHeight;line++){
             color = (line & 0x03) | (line >> 3 & 0x03) << 3 | (line%12 << 2);
-            //Serial.print("Drawing line on Y = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
-            //memset(rowBytes,0,5);
-            memset(rowBytes, color, graphics.settings.screenWidth);
-            programmer.WriteBytes(line << graphics.settings.horizontalBits, rowBytes,graphics.settings.screenWidth);
+           
+            programmer.FillBytes(line << graphics.settings.horizontalBits, color, graphics.settings.screenWidth);
             // for(byte x = 5; x < graphics.settings.screenWidth - 10; x++){
                 
             //     programmer.WriteByte(line<< graphics.settings.horizontalBits | (x & 0xFF), color,1,false);
@@ -255,23 +247,18 @@ inline void UI::_processInput(TPort port)
             //Serial.println();
             //delay(10);
         }
-        Serial.print(F("Draw lne : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
+        Serial.print(F("Draw lines : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 		//needPrintMenu = true;
 	}
     else if (resp[0] == 'v' || resp[0] == 'V') {
-		byte colBytes[max(graphics.settings.screenHeight, graphics.settings.screenWidth)];
+		byte colBytes[graphics.settings.screenWidth];
         byte color = 1;
         unsigned long startTime = millis();
-        for(uint16_t line = 0; line < graphics.settings.screenWidth;line++){   
-            //for(int div = 0; div < 8; div++){
-                //Serial.print("Drawing line on X = "); Serial.print(line); Serial.print(" with color: "); Serial.println(color,BIN);
-                memset(colBytes, color, graphics.settings.screenWidth);
-                for(int y = 0; y < graphics.settings.screenHeight; y++){
-                    programmer.WriteByte((y << graphics.settings.horizontalBits) + line, colBytes[y]);
-                }
-                //color+=2;
-            //}         
-            color++;
+        for(uint16_t x = 0; x < graphics.settings.screenWidth; x++)
+            colBytes[x] = color++;
+
+        for(uint16_t line = 0; line < graphics.settings.screenHeight;line++){              
+            programmer.WriteBytes((line << graphics.settings.horizontalBits), colBytes, graphics.settings.screenWidth);    
         }
         Serial.print(F("Draw vertical lines : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 		//needPrintMenu = true;
@@ -295,22 +282,27 @@ inline void UI::_processInput(TPort port)
 		//needPrintMenu = true;
 	}
     
-    else if (resp[0] == 'b' || resp[0] == 'B') { //colors
-        int blockWidth = ceil(graphics.settings.screenWidth / 16) + 1; //rather push off screen a bit
+    else if (resp[0] == 'b' || resp[0] == 'B') { //bloks
+        int blockWidth = ceil(graphics.settings.screenWidth / 16); //rather push off screen a bit
         int blockHeight = ceil((graphics.settings.screenHeight - 14) / 16);
         //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
-        graphics.clear();
-        int color = 0xFF;
+        graphics.clear(0,230,graphics.settings.screenWidth, 10);
+        byte color = 0xFF;
         //byte colors[blockWidth];
         char label[3];
         
         unsigned long  startTime = millis();
+        byte block[blockWidth * blockHeight ];
         for(int x = 1; x < graphics.settings.screenWidth; x+= blockWidth){
             for(int y=1;y < blockHeight * 16; y+= blockHeight){ 
-                graphics.fillRect(x,y, blockWidth, blockHeight,color);
+                memset(block, color, blockWidth * blockHeight);
                 memset(label,0,3);
                 sprintf(label, "%i", color);
-                graphics.drawText(x + 1, y, label,Color::WHITE, false);
+                graphics.drawTextToBuffer(label, block, blockWidth, color ^ 0xFF);
+                graphics.drawBuffer(x, y, blockWidth, blockHeight, block);
+
+                //graphics.fillRect(x,y, blockWidth, blockHeight,color);                
+                //graphics.drawText(x + 2, y + 2, label,color ^ 0xFF, color, false);
                 color--;
             }               
         }

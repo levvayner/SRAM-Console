@@ -19,34 +19,38 @@ void VRAM::begin(){
     //     Serial.print("Initialized frame buffer with "); Serial.print(settings.screenWidth * settings.screenHeight); Serial.println(" bytes");
     // }
 }
-void VRAM::drawText(int x, int y, const char *text, byte color, bool clearBackground, bool useFrameBuffer)
+void VRAM::drawText(int x, int y, const char *text, byte color, byte backgroundColor, bool clearBackground, bool useFrameBuffer, BusyType busyType)
 {
     uint16_t charOffsetY = 0, charOffsetX = 0;   
     //for each character
     for(size_t idx = 0; idx < strlen(text);idx++)    
     {
+        uint16_t bufferSize = settings.charWidth * (settings.charHeight + 1);
+        byte letterBuffer[bufferSize]; 
+        memset(letterBuffer, backgroundColor, bufferSize);
         
         //for each column of character
-        for(uint8_t charX = 0;charX < settings.charWidth - 1;charX ++){
-        //TODO: optimize to write line to buffer, then flish out the buffer to ram
-            byte column = charX < settings.charWidth ? CHARS[(uint8_t)(text[idx] - 32)][charX] : 0;
+        for(uint8_t charX = 0;charX < settings.charWidth;charX ++){
+            byte column = charX < settings.charWidth - 1 ? CHARS[(uint8_t)(text[idx] - 32)][charX] : 0;
 
 
             for(int charY = 0; charY < settings.charHeight; charY++){
-                byte isSet = (column & (1 << charY)) > 0;
+                byte isSet = column & (1 << charY);
                 if(!isSet && !clearBackground) continue;
-                if(useFrameBuffer)
-                    _frameBuffer[((y + charOffsetY + charY) * settings.screenWidth) + x + charOffsetX + charX] =  isSet ? color : 0;
-                else
-                    WriteByte(((y + charOffsetY + charY) << settings.horizontalBits) + x + charOffsetX + charX, isSet ? color : 0);
+                letterBuffer[charY*settings.charWidth + charX] =  isSet ?  color : backgroundColor ;
             }
-            if(clearBackground)
-                if(useFrameBuffer)
-                     _frameBuffer[((y + charOffsetY + settings.charHeight) * settings.screenWidth) + x + charOffsetX + charX] =  0;
-                else
-                    WriteByte(((y + charOffsetY + settings.charHeight) << settings.horizontalBits) + x + charOffsetX + charX, 0);
             
         }
+        
+        while(Busy(busyType));
+        for(int line = 0; line < settings.charHeight; line++){            
+            WriteBytes(
+                ((y + charOffsetY + line) << settings.horizontalBits) + x + charOffsetX,
+                letterBuffer + (line * settings.charWidth), 
+                settings.charWidth,
+                btVolatile
+            );
+        }        
 
         //see if we can move over one pixel to the right
         if (charOffsetX + settings.charWidth < settings.screenWidth)
@@ -63,24 +67,107 @@ void VRAM::drawText(int x, int y, const char *text, byte color, bool clearBackgr
         }
     }
 }
-void VRAM::drawText(int x, int y, const char *text, Color color, bool clearBackground, bool useFrameBuffer )
+void VRAM::drawText(int x, int y, const char *text, Color color, Color backgrounColor, bool clearBackground, bool useFrameBuffer, BusyType busyType )
 {
-    drawText(x, y, text, color.ToByte(), clearBackground, useFrameBuffer);
+    drawText(x, y, text, color.ToByte(), backgrounColor.ToByte(), clearBackground, useFrameBuffer, busyType);
 }
-void VRAM::drawText(int x, int y, char value, byte color, bool clearBackground, bool useFrameBuffer)
+void VRAM::drawText(int x, int y, char value, byte color,  byte backgroundColor, bool clearBackground, bool useFrameBuffer, BusyType busyType)
 {
     char buf[2];
     sprintf(buf,"%c",value);
-    drawText(x, y, buf, color, clearBackground, useFrameBuffer);    
+    drawText(x, y, buf, color, backgroundColor, clearBackground, useFrameBuffer, busyType);    
 }
-void VRAM::drawText(int x, int y, char value, Color color, bool clearBackground, bool useFrameBuffer)
+void VRAM::drawText(int x, int y, char text, Color color,  Color backgrounColor, bool clearBackground, bool useFrameBuffer, BusyType busyType)
 {
-    drawText(x, y, value, color.ToByte(), clearBackground, useFrameBuffer);
+    drawText(x, y, text, color.ToByte(), backgrounColor.ToByte(), clearBackground, useFrameBuffer, busyType);
 }
+
+void VRAM::drawTextToBuffer(const char* text, byte *buffer, uint16_t stride, byte color)
+{
+    uint16_t charOffsetY = 0, charOffsetX = 0;   
+    //for each character
+    for(size_t idx = 0; idx < strlen(text);idx++)    
+    {
+
+        for(uint8_t charX = 0;charX < settings.charWidth;charX ++){
+            byte column = charX < settings.charWidth - 1 ? CHARS[(uint8_t)(text[idx] - 32)][charX] : 0;
+
+
+            for(int charY = 0; charY < settings.charHeight; charY++){
+               
+                if(column & (1 << charY)) 
+                    buffer[((charY + charOffsetY ) * stride) + charX + charOffsetX] =  color;
+            }
+            
+        }
+
+        //see if we can move over one char to the right
+        if (charOffsetX + settings.charWidth < settings.screenWidth)
+        {
+            charOffsetX += settings.charWidth;            
+        } else{
+            //otherwise advance to next available line or beginning
+            charOffsetX = 0;
+            if(charOffsetY + settings.screenHeight * 2 < settings.screenHeight ){
+                charOffsetY += settings.charHeight;
+            } else {
+                charOffsetY = 0;
+            }
+        }
+    }
+}
+
+void VRAM::drawTextToBuffer(const char *text, const byte *colors, byte *buffer, uint16_t stride)
+{
+    uint16_t charOffsetY = 0, charOffsetX = 0;   
+    //for each character
+    for(size_t idx = 0; idx < strlen(text);idx++)    
+    {
+
+        for(uint8_t charX = 0;charX < settings.charWidth;charX ++){
+            byte column = charX < settings.charWidth - 1 ? CHARS[(uint8_t)(text[idx] - 32)][charX] : 0;
+
+
+            for(int charY = 0; charY < settings.charHeight; charY++){
+               uint32_t offset = ((charY + charOffsetY ) * stride) + charX + charOffsetX;
+                if(column & (1 << charY)) 
+                    buffer[offset] = colors[idx];
+            }
+            
+        }
+
+        //see if we can move over one char to the right
+        if (charOffsetX + settings.charWidth < settings.screenWidth)
+        {
+            charOffsetX += settings.charWidth;            
+        } else{
+            //otherwise advance to next available line or beginning
+            charOffsetX = 0;
+            if(charOffsetY + settings.screenHeight * 2 < settings.screenHeight ){
+                charOffsetY += settings.charHeight;
+            } else {
+                charOffsetY = 0;
+            }
+        }
+    }
+}
+
+void VRAM::drawBuffer(int x, int y, int width, int height, const byte *buffer)
+{
+    for(int line = 0; line < height; line++){            
+        WriteBytes(
+            ((y + line) << settings.horizontalBits) + x,
+            (uint8_t*)buffer + (line * width), 
+            width,
+            btAny
+        );
+    }    
+}
+
 bool VRAM::drawPixel(int x, int y, byte color)
 {
     if(x < 0 || x > settings.screenWidth) return false;
-    if(y < 0 || y > settings.charHeight) return false;
+    if(y < 0 || y > settings.screenHeight) return false;
     return WriteByte((y << settings.horizontalBits) + x, color);
 }
 
@@ -92,17 +179,16 @@ bool VRAM::drawPixel(int x, int y, Color color)
 bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
 {
     // find slope, increment from x1 to x2, changing y by slope
-    if(x2 == x1) {
+    if(x2 == x1) { //vertical line
         for(int y = y1; (y1 < y2) ?  y < y2 : y > y2; (y1 < y2) ? y++ : y--)
             drawPixel(x1,y,color);
 
         return true;
     }
+    //horizontal
     if(y2 == y1){
-        byte length = abs(x2 - x1);
-        uint8_t buf[length];
-        memset(buf,color,length);
-        WriteBytes((y1 << settings.horizontalBits) + (x1 > x2 ? x2 : x1),buf,length);
+        FillBytes(y1 << settings.horizontalBits + min(x1,x2), color, abs(x2-x1));
+        
         return true;
     }
     double slope = (double)(y2 - y1) / double(x2 - x1);
@@ -167,9 +253,9 @@ bool VRAM::drawRect(int x1, int y1, int width, int height, byte color)
 
     byte buf[clipWidth];
     memset(buf,color, clipWidth);
-    WriteBytes((y1 << settings.horizontalBits) + x1, buf, clipWidth);
+    WriteBytes((y1 << settings.horizontalBits) + x1, buf, clipWidth, btVertical);
     
-    WriteBytes(((y1 + clipHeight) << settings.horizontalBits) + x1, buf, clipWidth);
+    WriteBytes(((y1 + clipHeight) << settings.horizontalBits) + x1, buf, clipWidth, btVertical);
 
     //draw pixeled left and right
     for(byte y=y1; y < y1 + clipHeight; y++){
@@ -201,11 +287,9 @@ bool VRAM::fillRect(int x1, int y1, int width, int height, byte color)
     if(y1 < 0) y1 = 0;
     if(width > settings.screenWidth - x1) width = settings.screenWidth - x1;
     if(height > settings.screenHeight - y1) height = settings.screenHeight - y1;
-    byte buf[width];
-    memset(buf,color, width);
-
+    
     for(int y=y1; y < y1 + height; y++){
-        WriteBytes((y << settings.horizontalBits) + x1, buf, width);
+        FillBytes((y << settings.horizontalBits) + x1, color, width);
     }  
     return true;  
 }
@@ -225,10 +309,30 @@ bool VRAM::fillRect(Point topLeft, Point bottomRight, Color color)
     return fillRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color.ToByte());
 }
 
-bool VRAM::drawCircle(int x, int y, int radius, byte color)
+bool VRAM::drawCircle(int centerX, int centerY, int radius, byte color)
 {
-    
-    return drawArc(x,y,0,360,radius, color);
+    int x = 0, y = -radius, p = -radius;
+    while(x < -y){
+        if(p > 0){
+            y += 1;
+            p += 2*(x+y) + 1;
+        } else{
+            p += 2*x + 1;
+        }
+        
+        drawPixel(centerX + x, centerY + y, color);
+        drawPixel(centerX - x, centerY + y, color);
+        drawPixel(centerX + x, centerY - y, color);
+        drawPixel(centerX - x, centerY - y, color);
+        drawPixel(centerX + y, centerY + x, color);
+        drawPixel(centerX + y, centerY - x, color);
+        drawPixel(centerX - y, centerY + x, color);
+        drawPixel(centerX - y, centerY - x, color);
+
+        x += 1;
+    }
+    return true;
+    //return drawArc(x,y,0,360,radius, color);
 }
 
 bool VRAM::drawArc(int x, int y, int startAngle, int endAngle, int radius, byte color)
@@ -249,31 +353,50 @@ bool VRAM::drawArc(int x, int y, int startAngle, int endAngle, int radius, byte 
 
 bool VRAM::fillCircle(int centerX, int centerY, int radius, byte color)
 {
-    Rectangle boundRect = Rectangle(centerX - radius,centerY - radius, centerX + radius, centerY + radius);
-    if(boundRect.x1 < 0) boundRect.x1 = 0;
-    if(boundRect.y1 < 0) boundRect.y1 = 0;
-    if(boundRect.width() > settings.screenWidth - boundRect.x1) boundRect.x2 = settings.screenWidth;
-    if(boundRect.height() > settings.screenHeight - boundRect.y1) boundRect.y2 = settings.screenHeight ;
-    byte data[boundRect.width()];
 
-    //memset(data, 0, boundRect.height() * boundRect.width()); //TODO: consider using global background color or not filling
-    for(int pxlY = boundRect.y1; pxlY < boundRect.y2; pxlY++){
-        for(int pxlX = boundRect.x1; pxlX < boundRect.x2; pxlX ++){
-            //test if point is in circle
-            double distance = sqrt(pow(abs(pxlX - centerX),2) + pow(abs(pxlY - centerY), 2));
-            if(distance < radius){
-                data[(pxlX - boundRect.x1)] = color;
-            }
-            else {
-                data[(pxlX - boundRect.x1)] = ReadByte((pxlY << settings.horizontalBits) + pxlX);
-            }
+    int x = 0, y = -radius, p = -radius;
+    while(x < -y){
+        if(p > 0){
+            //end of line reached
+            y += 1;
+            p += 2*(x+y) + 1;
+        } else{
+            p += 2*x + 1;
         }
-        WriteBytes((pxlY << settings.horizontalBits) + boundRect.x1, data, boundRect.width());
+        drawLine(centerX - x, centerY + y, centerX + x, centerY + y, color); // top
+        drawLine(centerX - y, centerY + x, centerX + y, centerY + x, color); // second
+        drawLine(centerX - y, centerY - x, centerX + y, centerY - x, color); // third
+        drawLine(centerX - x, centerY - y, centerX + x, centerY - y, color); // bottom
+    
+        x += 1;
     }
 
- 
+    return true;
 
-    return false;
+    // //divide into 4 quadrants. Figure out for Q1, then negate x for Q2, negate x and y for Q3, negate y for Q4
+    // Rectangle boundRect = Rectangle(centerX - radius,centerY - radius, centerX + radius, centerY + radius);
+    // if(boundRect.x1 < 0) boundRect.x1 = 0;
+    // if(boundRect.y1 < 0) boundRect.y1 = 0;
+    // if(boundRect.width() > settings.screenWidth - boundRect.x1) boundRect.x2 = settings.screenWidth;
+    // if(boundRect.height() > settings.screenHeight - boundRect.y1) boundRect.y2 = settings.screenHeight ;
+    // byte data[boundRect.size()];    
+
+    // //memset(data, 0, boundRect.height() * boundRect.width()); //TODO: consider using global background color or not filling
+    // for(int pxlY = boundRect.y1; pxlY < boundRect.y2; pxlY++){
+    //     for(int pxlX = boundRect.x1; pxlX < boundRect.x2; pxlX ++){
+    //         //test if point is in circle
+    //         double distance = sqrt(pow(abs(pxlX - centerX),2) + pow(abs(pxlY - centerY), 2));
+    //         if(distance < radius){
+    //             data[(pxlX - boundRect.x1)] = color;
+    //         }
+    //         else {
+    //             data[(pxlX - boundRect.x1)] = ReadByte((pxlY << settings.horizontalBits) + pxlX);
+    //         }
+    //     }
+    //     WriteBytes((pxlY << settings.horizontalBits) + boundRect.x1, data, boundRect.width(), btVolatile);
+    // }
+
+ 
 }
 
 void VRAM::render()

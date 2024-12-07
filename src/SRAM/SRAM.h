@@ -8,7 +8,12 @@
 #define BUFFER_SIZE 1 << 10
 #define RETRY_COUNT 3
 #define ERASE_BYTE 0 //value denoting an erased byte
-
+enum BusyType{
+    btHorizontal = 1,
+    btVertical = 2,
+    btAny = 3,
+    btVolatile = 4
+};
 enum DeviceState {
 	dsOff = 0,
 	dsOutput = 1,
@@ -19,6 +24,18 @@ class SRAM
 public:
 	SRAM();
 	~SRAM();
+
+    bool inline Busy(BusyType busyType = btAny){
+        return busyType == btVolatile ? false :
+            busyType == btVertical ? 
+                !(PIOD->PIO_PDSR & PIO_PD5) : 
+                busyType == btHorizontal ?
+                    (PIOD->PIO_PDSR & PIO_PD4) :
+                    !(PIOA->PIO_PDSR & PIO_PA13);
+        //return (PIOD->PIO_PDSR & PIO_PD4); //horizontal screen clear, 3.9us
+        //return !(PIOD->PIO_PDSR & PIO_PD5); //vertical screen clear, 1.6ms
+        //return (PIOA->PIO_PDSR & PIO_PA13); // screen output (active low)
+    }
 
 
 	void DeviceOff();
@@ -32,9 +49,10 @@ public:
 	
 	// void WriteFirstByte(uint8_t data, uint16_t offsetAddress = 0);
 	// void WriteNextByte(uint8_t data);
-	bool WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount = RETRY_COUNT, bool showDebugData = true);
-	bool WriteShort(uint32_t addr, uint16_t data, bool showDebugData = true);
-    uint16_t WriteBytes(uint32_t addr, uint8_t* data, uint32_t length);
+	bool WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount = RETRY_COUNT,BusyType busyType = btAny);
+	bool WriteShort(uint32_t addr, uint16_t data, BusyType busyType = btAny);
+    uint16_t WriteBytes(uint32_t addr, uint8_t* data, uint32_t length, BusyType busyType = btAny);
+    uint16_t FillBytes(uint32_t startAddr, uint8_t data, uint32_t length, BusyType busyType = btAny);
 
     void Erase(uint32_t startAddress = 0x0, uint32_t length = SRAM_SIZE);
 

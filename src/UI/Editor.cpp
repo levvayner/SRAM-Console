@@ -79,11 +79,11 @@ void Editor::run()
             }       
 
             case PS2_KEY_F2:
-                _fgColor--;
+                textColor--;  
                 _drawColor();
                 break;
             case PS2_KEY_F3:
-                _fgColor++;
+                textColor++;  
                 _drawColor();
                 break;         
             
@@ -157,7 +157,7 @@ void Editor::DrawStatusBar()
     graphics.drawRect(0, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth, 9,Color::DARK_GREEN);
     graphics.fillRect(2, graphics.settings.screenHeight - 9, 6* (graphics.settings.charWidth), 8,Color::FromRGB(2,3,2));
     sprintf(buf,"Cursor");
-    graphics.drawText(2, graphics.settings.screenHeight - 9, buf, Color::WHITE, false);
+    graphics.drawText(2, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::DARK_GREEN, false);
     //_printChars(buf,Color::WHITE, 2, graphics.settings.screenHeight - 9, false);     
     
     _drawCursorPosition();
@@ -165,7 +165,7 @@ void Editor::DrawStatusBar()
     graphics.fillRect(79, graphics.settings.screenHeight - 9, graphics.settings.screenWidth - 80, 8, Color::FromRGB(2,3,0));
     
     sprintf(buf,"F2:color     F4:Quit");
-    graphics.drawText(80, graphics.settings.screenHeight - 9, buf, Color::WHITE, false);
+    graphics.drawText(80, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(2,3,0), false);
     //_printChars(buf,Color::WHITE, 80, graphics.settings.screenHeight - 9, false);     
     //see where we end up with color text
 
@@ -190,24 +190,37 @@ bool Editor::MoveCursorDown()
 void Editor::_drawCursorPosition(){
     //if(!_consoleRunning) return;
     if(_cursorX > graphics.settings.screenWidth || _cursorY > graphics.settings.screenHeight ) return;
-    char buf[9];
-    
-    //cursor x
-    memset(buf,0,9);
-    graphics.fillRect(6* (graphics.settings.charWidth) + 4, graphics.settings.screenHeight - 9, 18, 8,Color::LIME);    
-    sprintf(buf,"%i",_cursorX); 
-    graphics.drawText((6* (graphics.settings.charWidth) + 5), graphics.settings.screenHeight - 9, buf, Color::NAVY_BLUE, false);
-    //_printChars(buf,Color::YELLOW, (6* (graphics.settings.charWidth) + 5), graphics.settings.screenHeight - 9, false);      
-    
-    
-    //cursor y
-    memset(buf,0,9);
-    graphics.fillRect(10* (graphics.settings.charWidth), graphics.settings.screenHeight - 9, 18, 8,Color::LIME);    
-    sprintf(buf,"%i",_cursorY);    
-    graphics.drawText((10 * (graphics.settings.charWidth) + 1), graphics.settings.screenHeight - 9, buf, Color::NAVY_BLUE, false);
-    //_printChars(buf,Color::YELLOW, (9 * (graphics.settings.charWidth)) + 7, graphics.settings.screenHeight - 9, false);   
+    char label[9];
+    uint8_t block[8 * graphics.settings.charWidth * graphics.settings.charHeight];
 
-    sprintf(buf,"%i, %i", _cursorX, _cursorY);
+    sprintf(label,"%03d, %03d%c", _cursorX, _cursorY,'\0');        
+    memset(block, Color::LIGHT_GREEN, 8 * graphics.settings.charWidth * graphics.settings.charHeight);
+  
+    graphics.drawTextToBuffer(label, block, 8 * graphics.settings.charWidth , Color::NAVY_BLUE);
+    graphics.drawBuffer((6* (graphics.settings.charWidth) + 4), graphics.settings.screenHeight - 9 , 8 * graphics.settings.charWidth , graphics.settings.charHeight, block);
+
+    //graphics.fillRect(x,y, blockWidth, blockHeight,color);                
+    //graphics.drawText(x + 2, y + 2, label,color ^ 0xFF, color, false);
+            
+                     
+    
+    
+    // //cursor x
+    // memset(buf,0,9);
+    // graphics.fillRect(6* (graphics.settings.charWidth) + 4, graphics.settings.screenHeight - 9, 18, 8,Color::LIME);    
+    // sprintf(buf,"%i",_cursorX); 
+    // graphics.drawText((6* (graphics.settings.charWidth) + 5), graphics.settings.screenHeight - 9, buf, Color::NAVY_BLUE, Color::LIME, false);
+    // //_printChars(buf,Color::YELLOW, (6* (graphics.settings.charWidth) + 5), graphics.settings.screenHeight - 9, false);      
+    
+    
+    // //cursor y
+    // memset(buf,0,9);
+    // graphics.fillRect(10* (graphics.settings.charWidth), graphics.settings.screenHeight - 9, 18, 8,Color::LIME);    
+    // sprintf(buf,"%i",_cursorY);    
+    // graphics.drawText((10 * (graphics.settings.charWidth) + 1), graphics.settings.screenHeight - 9, buf, Color::NAVY_BLUE, Color::LIME, false);
+    // //_printChars(buf,Color::YELLOW, (9 * (graphics.settings.charWidth)) + 7, graphics.settings.screenHeight - 9, false);   
+
+    // sprintf(buf,"%i, %i", _cursorX, _cursorY);
     //Serial.print("Set cursor to "); Serial.println(buf);
 
 }
@@ -216,10 +229,10 @@ void Editor::_drawColor()
 {
     char buf[4];
     graphics.fillRect(130, graphics.settings.screenHeight - 9, 24, 8, Color::FromRGB(1,1,0));
-     sprintf(buf,"%i", _fgColor);
-     graphics.drawText(131, graphics.settings.screenHeight - 9, buf, Color::WHITE, false);
+     sprintf(buf,"%i", textColor);
+     graphics.drawText(131, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(1,1,0), false);
     //_printChars(buf,Color::WHITE, 131, graphics.settings.screenHeight - 9, false);  
-    graphics.fillRect(150, graphics.settings.screenHeight - 8, 3, 6, _fgColor);
+    graphics.fillRect(150, graphics.settings.screenHeight - 8, 3, 6, textColor);
 }
 
 
