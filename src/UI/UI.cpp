@@ -319,7 +319,27 @@ inline void UI::_processInput(TPort port)
         console.write("256 Available Colors", 20,Color::WHITE, true);
            
         
-    }    
+    }
+    else if (resp[0] == 'o' || resp[0] == 'O') { //graphics
+        graphics.drawOval(90, 160, 30, 50, Color::BRICK);
+        graphics.drawOval(190, 60, 90, 30, Color::BLUE);
+
+        graphics.fillOval(40, 20, 30, 20, Color::BLUE);
+
+        graphics.fillOval(210, 150, 50, 25, Color::BLUE);
+    }
+    
+    else if (resp[0] == 't' || resp[0] == 'T') { //graphics
+
+
+        graphics.drawTriangle(5, 20, 230, 20, 130, 175, Color::BLUE);
+        graphics.drawTriangle(230, 60, 140, 70, 190, 70, Color::GREEN);
+        graphics.drawTriangle(80,120, 110, 155, 240, 190, Color::LIGHT_BLUE);
+        graphics.drawTriangle(5,120,15,120,190,135, Color::GOLD);
+        graphics.drawTriangle(128, 211, 390, 41, 121, 98, Color::GRAY);
+        graphics.drawTriangle(120, 211, 120, 41, 190, 98, Color::GRAY);
+    }
+    
     else if (resp[0] == 'g' || resp[0] == 'G') { //graphics
         int numOfObjects = 100;
         graphics.clear();
@@ -366,9 +386,20 @@ inline void UI::_processInput(TPort port)
 
         graphics.clear();
 
-        dtStartTime = millis();
+        Serial.print("Testing drawing ovals .. ");
+        
+        unsigned long doStartTime = millis();
+        for(int idx = 0; idx < numOfObjects; idx++){
+            graphics.drawOval(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(1,140),random(1,140), random(0,255));
+        }
+        doStartTime = millis() - doStartTime;
+        Serial.print(".  "); Serial.print(doStartTime); Serial.println(" ms");
+
+        graphics.clear();
+
+        unsigned long ftStartTime;
         Serial.print("Testing filling triangles .. ");
-        dtStartTime = millis();
+        ftStartTime = millis();
         for(int idx = 0; idx < numOfObjects; idx++){
             graphics.fillTriangle(
                 random(5,graphics.settings.screenWidth - 10), 
@@ -380,8 +411,8 @@ inline void UI::_processInput(TPort port)
                 random(0,255)
             );
         }
-        dtStartTime = millis() - dtStartTime;
-        Serial.print(". "); Serial.print(dtStartTime); Serial.println(" ms");
+        ftStartTime = millis() - ftStartTime;
+        Serial.print(". "); Serial.print(ftStartTime); Serial.println(" ms");
 
         graphics.clear();
 
@@ -408,12 +439,25 @@ inline void UI::_processInput(TPort port)
 
         graphics.clear();
 
+        unsigned long foStartTime = millis();
+        Serial.print("Testing filling ovals .. ");
+        foStartTime = millis();
+        for(int idx = 0; idx < numOfObjects; idx++){
+            graphics.fillOval(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(5,70), random(5,70), random(0,255));
+        }
+        foStartTime = millis() - foStartTime;
+        Serial.print(". "); Serial.print(foStartTime); Serial.println(" ms");
+
+        graphics.clear();
+
         console.SetPosition(0,0);
         sprintf(buf,"Drawing %i triangles:  %lu ms", numOfObjects, dtStartTime);
         console.println(buf);
         sprintf(buf,"Drawing %i rectangles: %lu ms", numOfObjects, drStartTime);
         console.println(buf);
         sprintf(buf,"Drawing %i circles:    %lu ms", numOfObjects, dcStartTime);
+        console.println(buf);
+        sprintf(buf,"Filling %i triangles:  %lu ms", numOfObjects, ftStartTime);
         console.println(buf);
         sprintf(buf,"Filling %i rectangles: %lu ms", numOfObjects, frStartTime);
         console.println(buf);

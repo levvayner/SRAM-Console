@@ -381,6 +381,61 @@ void VRAM::render()
     Serial.print(" completed in "); Serial.print(millis() - startTime); Serial.println(" ms.");
 }
 
+void VRAM::drawOval(int centerX, int centerY, int width, int height, byte color)
+{
+    int hh = height * height;
+    int ww = width * width;
+    int hhww = hh * ww;
+    int x0 = width;
+    int dx = 0;
+
+    drawPixel(centerX - width, centerY, color);
+    drawPixel(centerX + width, centerY, color);
+
+    // now do both halves at the same time, away from the diameter
+    for (int y = 1; y <= height; y++)
+    {
+        int x1 = x0 - (dx - 1);  // try slopes of dx - 1 or more
+        for ( ; x1 > 0; x1--){
+            drawPixel(centerX - x1, centerY - y, color);
+            drawPixel(centerX + x1, centerY + y, color);
+            drawPixel(centerX + x1, centerY - y, color);
+            drawPixel(centerX - x1, centerY + y, color);
+            if (x1*x1*hh + y*y*ww <= hhww)
+                break;
+        }
+        dx = x0 - x1;  // current approximation of the slope
+        x0 = x1;
+    }
+}
+
+void VRAM::fillOval(int centerX, int centerY, int width, int height, byte color)
+{
+    int hh = height * height;
+    int ww = width * width;
+    int hhww = hh * ww;
+    int x0 = width;
+    int dx = 0;
+
+    // do the horizontal diameter
+    FillBytes((centerY << settings.horizontalBits) + centerX - width, color, width << 1);
+    // drawPixel(centerX - width, centerY, color);
+    // drawPixel(centerX + width, centerY, color);
+
+    // now do both halves at the same time, away from the diameter
+    for (int y = 1; y <= height; y++)
+    {
+        int x1 = x0 - (dx - 1);  // try slopes of dx - 1 or more
+        for ( ; x1 > 0; x1--){
+            FillBytes(((centerY - y) << settings.horizontalBits) + centerX - x1, color, x1 << 1);
+            FillBytes(((centerY + y) << settings.horizontalBits) + centerX - x1, color, x1 << 1);
+            if (x1*x1*hh + y*y*ww <= hhww)
+                break;
+        }
+        dx = x0 - x1;  // current approximation of the slope
+        x0 = x1;
+    }
+}
 
 bool VRAM::_drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color, bool fill)
 {
@@ -392,14 +447,9 @@ bool VRAM::_drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte co
     // 4. One point on top, another point below, third on bottom
 
 
-    //char buf[256];
     uint16_t yMin = y1;
     if(y2<yMin) yMin = y2;
     if(y3<yMin) yMin = y3;
-
-    // sprintf(buf,"P1: (% 3d, % 3d)  P2: (% 3d, % 3d)  P3: (% 3d, % 3d)", x1, y1, x2, y2, x3, y3);
-    // drawText(10,20, buf, Color::WHITE);
-    
 
     //how many virtacies on top y
     if(y1 == yMin && y2 == yMin && y3 == yMin){
@@ -485,148 +535,75 @@ void VRAM::_drawTriangleTop2(int x1, int x2, int topY, int bottomX, int bottomY,
 {
     //char buf[128];
     FillBytes((topY << settings.horizontalBits) + min(x1, x2),color,max(x1,x2) - min(x1,x2));
-    //converge towards y3
-    int rowX1 = x1, prevX1 = x1; //line from x1 to x3
-    int rowX2 = x2, prevX2 = x2; // line from x2 to x3
-    bool slope1Vertical = (x1 - bottomX) == 0;
-    bool slope2Vertical = (x2 - bottomX) == 0;
-    float slopeX1 = ((float)(bottomY - topY) / (float)(bottomX - x1)); //rise over run
-    float slopeX2 = ((float)(bottomY - topY) / (float)(bottomX - x2)); //rise over run
-    int yInterceptX1 = -1*(slopeX1 * x1 - topY);    // slopeX1 =  (y1 - yInt) / x1, -1 * (slopeX1 * x1 - y1) = yInt
-    int yInterceptX2 = -1*(slopeX2 * x2 - topY);    // 
-
+    TrinagleLegDrawObject leg1 = TrinagleLegDrawObject(x1, topY, bottomX, bottomY);
+    TrinagleLegDrawObject leg2 = TrinagleLegDrawObject(x2, topY, bottomX, bottomY);
     
-    for(int yScan = topY; yScan <= bottomY; yScan++){
-        //memset(buf,0,sizeof(buf));
-        prevX1 = rowX1;
-        prevX2 = rowX2;
-        rowX1 = slope1Vertical ? rowX1 : ((float)(yScan - yInterceptX1 )) / slopeX1; 
-        rowX2 = slope2Vertical ? rowX2 : ((float)(yScan - yInterceptX2 )) / slopeX2; 
-        // sprintf(buf,"(%d,%d)  -  (%d,%d)", rowX1, yScan, rowX2, yScan);
-        // Serial.println(buf);
-        if(fill)
-            FillBytes((yScan << settings.horizontalBits) + min(rowX1,rowX2), color, max(rowX1,rowX2) - min(rowX1,rowX2));        
-        else 
-        {
-            if(slopeX1 < 1.0 && slopeX1 > -1.0)
-                FillBytes((yScan << settings.horizontalBits) + min(prevX1,rowX1), color, max(rowX1, prevX1) - min(rowX1,prevX1));
-            else
-                drawPixel(rowX1, yScan, color);            
-
-            if(slopeX2 < 1.0 && slopeX2 > -1.0)
-                FillBytes((yScan << settings.horizontalBits) + min(prevX2,rowX2), color, max(rowX2, prevX2) - min(rowX2,prevX2));
-            else
-                drawPixel(rowX2, yScan, color);
-        }
-    }
+    _drawTrinagleScanLines(leg1, leg2, topY, bottomY, color, fill);    
     
 }
 
 void VRAM::_drawTriangleTop1EqualBottoms(int topX, int topY, int x1, int x2, int bottomY, byte color, bool fill)
 {
-    //char buf[128];
-    float rowX1 = topX, prevX1 = topX; //line from x2 to x1
-    float rowX2 = topX, prevX2 = topX; // line from x3 to x1
-    bool slope1Vertical = (x1 - topX) == 0;
-    bool slope2Vertical = (x2 - topX) == 0;
-    float slopeX1 = ((float)(bottomY - topY) / (float)(x1 - topX)); //rise over run
-    float slopeX2 = ((float)(bottomY - topY) / (float)(x2 - topX)); //rise over run    
-    int yInterceptX1 = -1*((slopeX1 * (float)topX) - topY);    // slopeX1 =  (y1 - yInt) / x1, -1 * (slopeX1 * x1 - y1) = yInt
-    int yInterceptX2 = -1*((slopeX2 * (float)topX) - topY);    // 
-    // sprintf(buf, "P1-P3 = %03.3fx + %d  P2-P3 = %03.3fx + %0d", slopeX1, yInterceptX1, slopeX2, yInterceptX2);
-    // drawText(10,30,buf,Color::BROWN);
-    
-    for(uint16_t yScan = topY; yScan <= bottomY;yScan++){
-        prevX1 = rowX1;
-        prevX2 = rowX2;
-        rowX1 = slope1Vertical ? rowX1 : ((float)(yScan - yInterceptX1 )) / slopeX1; 
-        rowX2 = slope2Vertical ? rowX2 : ((float)(yScan - yInterceptX2 )) / slopeX2; 
-        if(fill)
-            FillBytes((yScan << settings.horizontalBits) + min(rowX1,rowX2), color, max(rowX1,rowX2) - min(rowX1,rowX2));
-         
-        else {
-            if(slopeX1 < 1.0 && slopeX1 > -1.0)
-                FillBytes((yScan << settings.horizontalBits) + min(prevX1,rowX1), color, max(rowX1, prevX1) - min(rowX1,prevX1));
-            else
-                drawPixel(rowX1, yScan, color);            
+    TrinagleLegDrawObject leg1 = TrinagleLegDrawObject(topX, topY, x1, bottomY);
+    TrinagleLegDrawObject leg2 = TrinagleLegDrawObject(topX, topY, x2, bottomY);
 
-            if(slopeX2 < 1.0 && slopeX2 > -1.0)
-                FillBytes((yScan << settings.horizontalBits) + min(prevX2,rowX2), color, max(rowX2, prevX2) - min(rowX2,prevX2));
-            else
-                drawPixel(rowX2, yScan, color);
-        }
-    }
+    _drawTrinagleScanLines(leg1, leg2, topY, bottomY, color, fill);
     FillBytes((bottomY << settings.horizontalBits) + min(x1, x2),color,max(x1,x2) - min(x1,x2));    
 
 }
 void VRAM::_drawTriangleTop1DifferentBottoms(int topX, int topY, int middleX, int middleY, int bottomX, int bottomY, byte color, bool fill){
-    float rowX1 = topX, prevX1 = topX; //line from x2 to x1
-    float rowX2 = topX, prevX2 = topX; // line from x3 to x1
-    bool slope1Vertical = (middleX - topX) == 0;
-    bool slope2Vertical = (bottomX - topX) == 0;
-    bool slope3Vertical = (bottomX - middleX) == 0;
-    float slopeX1 = ((float)(middleY - topY) / (float)(middleX - topX)); //rise over run
-    float slopeX2 = ((float)(bottomY - topY) / (float)(bottomX - topX)); //rise over run    
-    float slopeX3 = ((float)(bottomY - middleY)/ (float)(bottomX - middleX));
-    int yInterceptX1 = -1*((slopeX1 * (float)topX) - topY);    // slopeX1 =  (y1 - yInt) / x1, -1 * (slopeX1 * x1 - y1) = yInt
-    int yInterceptX2 = -1*((slopeX2 * (float)topX) - topY);    // 
-    int yInterceptX3 = -1*((slopeX3 * (float)middleX) - middleY);    // 
 
-    //diverge towards middle point
-    for(uint16_t yScan = topY; yScan < middleY;yScan++){
-        prevX1 = rowX1;
-        prevX2 = rowX2;
-        rowX1 = slope1Vertical ? rowX1 : ((float)(yScan - yInterceptX1 )) / slopeX1; 
-        rowX2 = slope2Vertical ? rowX2 : ((float)(yScan - yInterceptX2 )) / slopeX2; 
+    TrinagleLegDrawObject leg1 = TrinagleLegDrawObject(topX, topY, middleX, middleY);
+    TrinagleLegDrawObject leg2 = TrinagleLegDrawObject(topX, topY, bottomX, bottomY);
+    TrinagleLegDrawObject leg3 = TrinagleLegDrawObject(middleX, middleY, bottomX, bottomY);
 
-        if(fill)
-            FillBytes((yScan << settings.horizontalBits) + min(rowX1,rowX2), color, max(rowX1,rowX2) - min(rowX1,rowX2));
-        else {
-            if(slopeX1 < 1.0 || slopeX1 > 1.0 || slope1Vertical){
-                drawPixel(rowX1, yScan, color);
-            }
-            else
-                FillBytes((yScan << settings.horizontalBits) + min(prevX1,rowX1), color, max(rowX1, prevX1) - min(rowX1,prevX1));
-                    
+    _drawTrinagleScanLines(leg1, leg2,topY, middleY, color, fill);
+    _drawTrinagleScanLines(leg3, leg2,middleY, bottomY, color, fill);
 
-            drawPixel(rowX2, yScan, color);
-
-            if(slopeX2 < 1.0 || slopeX2 > 1.0 || slope2Vertical)
-                drawPixel(rowX2, yScan, color);
-            else
-                FillBytes((yScan << settings.horizontalBits) + min(prevX2,rowX2), color, max(rowX2, prevX2) - min(rowX2,prevX2));
-        }
-
-        
-        
-            
-    }
-    //converge towards bottom point
-    // use slope x3 instead of slipe x1
-    for(uint16_t yScan = middleY; yScan < bottomY;yScan++){
-        prevX1 = rowX1;
-        prevX2 = rowX2;
-        rowX1 = slope3Vertical ? rowX1 : ((float)(yScan - yInterceptX3 )) / slopeX3; 
-        rowX2 = slope2Vertical ? rowX2 : ((float)(yScan - yInterceptX2 )) / slopeX2; 
-
-        if(fill)
-            FillBytes((yScan << settings.horizontalBits) + min(rowX1,rowX2), color, max(rowX1,rowX2) - min(rowX1,rowX2));
-        else {
-            if(slopeX3 < 1.0 || slopeX3 > 1.0 || slope3Vertical)
-                drawPixel(rowX1, yScan, color);            
-            
-            else
-                FillBytes((yScan << settings.horizontalBits) + min(prevX1,rowX1), color, max(rowX1, prevX1) - min(rowX1,prevX1));
-        
-            if(slopeX2 < 1.0 || slopeX2 > 1.0 || slope2Vertical)
-                drawPixel(rowX2, yScan, color);
-            else
-                FillBytes((yScan << settings.horizontalBits) + min(prevX2,rowX2), color, max(rowX2, prevX2) - min(rowX2,prevX2));
-        }
-    }
     drawPixel(bottomX, bottomY, color);
-
-
 }
 
+void VRAM::_drawTrinagleScanLines(TrinagleLegDrawObject & leg1, TrinagleLegDrawObject & leg2, int topY, int bottomY, byte color, bool fill)
+{
+    char buf[128];
+    int minX    = 0;
+    int minX1   = 0;
+    int minX2   = 0;
+    int maxX    = 0;
+    int maxX1   = 0;
+    int maxX2   = 0;
 
+    for(int yScan = max(topY,0); yScan <= min(bottomY, settings.screenHeight); yScan++){
+        memset(buf,0,sizeof(buf));
+        leg1.prevX = leg1.rowX;
+        leg2.prevX = leg2.rowX;
+        leg1.rowX = leg1.isVertical ? leg1.rowX : ((float)(yScan - leg1.yIntercept )) / leg1.slope; 
+        leg2.rowX = leg2.isVertical ? leg2.rowX : ((float)(yScan - leg2.yIntercept )) / leg2.slope;
+        
+        minX = min(leg1.rowX,leg2.rowX);
+        minX1 = min(leg1.prevX,leg1.rowX);
+        minX2 = min(leg2.prevX,leg2.rowX);
+        maxX = max(leg1.rowX,leg2.rowX);
+        maxX1 = max(leg1.prevX,leg1.rowX);
+        maxX2 = max(leg2.prevX,leg2.rowX);
+        if(minX < 0) minX = 0; 
+        if(minX > settings.screenWidth) return; //entire trinagle is outside of the screen
+        if(maxX < 0) return; //entire triangle is outside of the screen
+        if(maxX > settings.screenWidth) maxX = settings.screenWidth;
+
+        if(fill)
+            FillBytes((yScan << settings.horizontalBits) + minX, color, maxX - minX);        
+        else 
+        {
+            if(leg1.slope < 1.0 && leg1.slope > -1.0)
+                FillBytes((yScan << settings.horizontalBits) + minX1, color, maxX1 - minX1);
+            else if(leg1.rowX >= 0 && leg1.rowX < settings.screenWidth)
+                drawPixel(leg1.rowX, yScan, color);            
+
+            if(leg2.slope < 1.0 && leg2.slope > -1.0)
+                FillBytes((yScan << settings.horizontalBits) + minX2, color, maxX2 - minX2);
+            else if(leg2.rowX >= 0 && leg2.rowX < settings.screenWidth)
+                drawPixel(leg2.rowX, yScan, color);
+        }
+    }
+}

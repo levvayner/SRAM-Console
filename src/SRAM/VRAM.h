@@ -11,6 +11,38 @@ struct Point{
     Point(int x, int y){ this->x = x; this->y = y;}
 };
 
+struct TriangleLeg{
+    int x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+    float slope = 0;
+    float yIntercept = 0;
+    bool isVertical = false;
+    bool isHorizontal = false;
+    TriangleLeg(){
+
+    }
+
+    TriangleLeg(int x1, int y1, int x2, int y2){
+        this->x1 = x1;
+        this->x2 = x2;
+        this->y1 = y1;
+        this->y2 = y2;
+        isVertical = x1 == x2;
+        isHorizontal = y1 == y2;
+        
+        slope = isHorizontal ? 0 : isVertical ? 0 : ((float)(max(y1, y2) - min(y1, y2)) / (float)(y1 > y2? x1 - x2 : x2 - x1));
+        yIntercept = -1*(slope * x1 - y1);
+    }
+};
+
+struct TrinagleLegDrawObject : public TriangleLeg{
+    int rowX = 0, prevX  = 0;
+    TrinagleLegDrawObject(int x1, int y1, int x2, int y2): TriangleLeg(x1, y1, x2, y2){  
+        rowX = x1;
+        prevX = x2;
+    }
+    
+};
+
 struct Rectangle{
     public:
     uint16_t x1;
@@ -116,6 +148,12 @@ class VRAM : public SRAM{
             return fillCircle(x, y, radius, color.ToByte());
         }
 
+        virtual void drawOval(int centerX, int centerY, int width, int height, byte color = Color::WHITE);
+        inline virtual void drawOval(int centerX, int centerY, int width, int height, Color color = Color::WHITE){
+            drawOval(centerX, centerY, width, height, color.ToByte());
+        }
+
+        virtual void fillOval(int centerX, int centerY, int width, int height, byte color = Color::WHITE);
         
 
         virtual inline bool clear(int x1 = 0, int y1 = 0, int width = 0, int height = 0){
@@ -133,6 +171,8 @@ class VRAM : public SRAM{
     void _drawTriangleTop2(int x1, int x2, int topY, int x3, int bottomY, byte color, bool fill = false);
     void _drawTriangleTop1EqualBottoms(int topX, int topY, int x1, int x2, int bottomY, byte color, bool fill = false);
     void _drawTriangleTop1DifferentBottoms(int topX, int topY, int middleX, int middleY, int bottomX, int bottomY, byte color, bool fill = false);
+
+    void _drawTrinagleScanLines(TrinagleLegDrawObject & leg1, TrinagleLegDrawObject & leg2, int topY, int bottomY, byte color, bool fill);
     private:
     uint8_t *_frameBuffer;
 
