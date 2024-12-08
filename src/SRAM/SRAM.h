@@ -9,10 +9,10 @@
 #define RETRY_COUNT 3
 #define ERASE_BYTE 0 //value denoting an erased byte
 enum BusyType{
-    btHorizontal = 1,
-    btVertical = 2,
-    btAny = 3,
-    btVolatile = 4
+    btHorizontal = 1,   // draws on horizontal break. suitable for short burst, few pixels
+    btVertical = 2,     // vertical break, suitable for longer writes
+    btAny = 3,          // horizontal and vertical breaks from showing screen
+    btVolatile = 4      // writes ignoring vga output state. will likely result in video signal glitching while writing
 };
 enum DeviceState {
 	dsOff = 0,
@@ -59,9 +59,6 @@ public:
 private:
 	uint16_t counter = 0;
 	uint16_t _retries = 0;
-    // uint8_t _portAddressLower = PORTA;
-    // uint8_t _portAddressUpper = PORTC;
-    // uint8_t _portData = PORTL;
 
 protected:
 

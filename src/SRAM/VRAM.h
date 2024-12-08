@@ -59,58 +59,80 @@ class VRAM : public SRAM{
 
         
 
-        void drawText(int x, int y, const char * text, byte color = 0xFF, byte backgroundColor = 0x0, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
-        void drawText(int x, int y, const char * text, Color color = Color::WHITE, Color backgroundColor = Color::BLACK, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
+        virtual void drawText(int x, int y, const char * text, byte color = 0xFF, byte backgroundColor = 0x0, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
+        virtual void drawText(int x, int y, const char * text, Color color = Color::WHITE, Color backgroundColor = Color::BLACK, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
 
-        void drawText(int x, int y, char text, byte color = 0xFF, byte backgroundColor = 0x0, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
-        void drawText(int x, int y, char text, Color color = Color::WHITE, Color backgroundColor = Color::BLACK, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
+        virtual void drawText(int x, int y, char text, byte color = 0xFF, byte backgroundColor = 0x0, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
+        virtual void drawText(int x, int y, char text, Color color = Color::WHITE, Color backgroundColor = Color::BLACK, bool clearBackground = true, bool useFrameBuffer = false, BusyType busyType = btAny);
 
-        void drawTextToBuffer(const char * text, byte* buffer,  uint16_t stride, byte color);
-        void drawTextToBuffer(const char * text, const byte * colors, byte* buffer,  uint16_t stride);
+        virtual void drawTextToBuffer(const char * text, byte* buffer,  uint16_t stride, byte color);
+        virtual void drawTextToBuffer(const char * text, const byte * colors, byte* buffer,  uint16_t stride);
 
-        void drawBuffer(int x, int y, int width, int height, const byte* buffer);
+        virtual void drawBuffer(int x, int y, int width, int height, const byte* buffer);
 
-        bool drawPixel(int x, int y, byte color = 0xFF);
-        bool drawPixel(int x, int y, Color color);
+        virtual bool drawPixel(int x, int y, byte color = 0xFF);
+        virtual bool drawPixel(int x, int y, Color color);
 
-        bool drawLine(int x1, int y1, int x2, int y2, byte color = 0xFF);
-        bool drawLine (Point start, Point end, byte color);
-        bool drawLine(int x1, int y1, int x2, int y2, Color color = Color::WHITE);
-        bool drawLine (Point start, Point end, Color color = Color::WHITE);
+        virtual bool drawLine(int x1, int y1, int x2, int y2, byte color = 0xFF);
+        virtual bool drawLine (Point start, Point end, byte color);
+        virtual bool drawLine(int x1, int y1, int x2, int y2, Color color = Color::WHITE);
+        virtual bool drawLine (Point start, Point end, Color color = Color::WHITE);
 
-        bool drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color = 0xFF);
-        bool drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color = Color::WHITE);
+        virtual bool drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color = 0xFF);
+        virtual bool drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color)
+        {
+            return drawTriangle(x1, y1, x2, y2, x3, y3, color.ToByte());
+        }
 
-        bool drawRect(int x1, int y1, int width, int height, byte color = 0xFF);
-        bool drawRect (Point topLeft, Point bottomRight, byte color = 0xFF);
-        bool drawRect(int x1, int y1, int width, int height, Color color = Color::WHITE);
-        bool drawRect (Point topLeft, Point bottomRight, Color color = Color::WHITE);
+        virtual inline bool fillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color = 0xFF){
+            return _drawTriangle(x1, y1, x2, y2, x3, y3, color, true);
+        }
+        virtual inline bool fillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color = Color::WHITE){
+            return fillTriangle(x1, y1, x2, y2, x3, y3, color.ToByte());
+        }
 
-        bool fillRect(int x1, int y1, int width, int height, byte color = 0xFF);
-        bool fillRect(int x1, int y1, int width, int height,  Color color =Color::WHITE);
-        bool fillRect (Point topLeft, Point bottomRight, byte color = 0xFF);
-        bool fillRect (Point topLeft, Point bottomRight, Color color =Color::WHITE);
+        virtual bool drawRect(int x1, int y1, int width, int height, byte color = 0xFF);
+        virtual bool drawRect (Point topLeft, Point bottomRight, byte color = 0xFF);
+        virtual bool drawRect(int x1, int y1, int width, int height, Color color = Color::WHITE);
+        virtual bool drawRect (Point topLeft, Point bottomRight, Color color = Color::WHITE);
 
-        bool drawCircle(int centerX, int centerY, int radius, byte color = 0xFF);
-        bool drawCircle(int centerX, int centerY, int radius, Color color = Color::WHITE);
+        virtual bool fillRect(int x1, int y1, int width, int height, byte color = 0xFF);
+        virtual bool fillRect(int x1, int y1, int width, int height,  Color color =Color::WHITE);
+        virtual bool fillRect (Point topLeft, Point bottomRight, byte color = 0xFF);
+        virtual bool fillRect (Point topLeft, Point bottomRight, Color color =Color::WHITE);
 
-        bool drawArc(int x, int y, int startAngle, int endAngle, int radius, byte color = 0xFF);
-        bool drawArc(int x, int y, int startAngle, int endAngle, int radius, Color color = Color::WHITE);
+        virtual bool drawCircle(int centerX, int centerY, int radius, byte color = 0xFF);
+        virtual inline bool drawCircle(int centerX, int centerY, int radius, Color color = Color::WHITE){
+            return drawCircle(centerX, centerY, radius, color.ToByte());
+        }
 
-        bool fillCircle(int x, int y, int radius, byte color = 0xFF);
-        bool fillCircle(int x, int y, int radius, Color color = Color::WHITE);
+        virtual bool drawArc(int x, int y, int startAngle, int endAngle, int radius, byte color = 0xFF);
+        virtual inline bool drawArc(int x, int y, int startAngle, int endAngle, int radius, Color color = Color::WHITE){
+            return drawArc(x, y, startAngle, endAngle, radius, color.ToByte());
+        }
+
+        virtual bool fillCircle(int x, int y, int radius, byte color = 0xFF);
+        virtual inline bool fillCircle(int x, int y, int radius, Color color = Color::WHITE) { 
+            return fillCircle(x, y, radius, color.ToByte());
+        }
 
         
 
-        bool clear(int x1 = 0, int y1 = 0, int width = 0, int height = 0){
+        virtual inline bool clear(int x1 = 0, int y1 = 0, int width = 0, int height = 0){
             if(width == 0) width = settings.screenWidth - x1 + 1;
             if(height == 0) height = settings.screenHeight - y1 + 1;
             return fillRect(x1, y1, width, height, Color::BLACK);
         }
 
         /// @brief renders frame buffer to screen (writes to ram)
-        void render();
+        virtual void render();
 
+
+    private:
+    bool _drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color = 0xFF, bool fill = false);
+    void _drawTriangleTop2(int x1, int x2, int topY, int x3, int bottomY, byte color, bool fill = false);
+    void _drawTriangleTop1EqualBottoms(int topX, int topY, int x1, int x2, int bottomY, byte color, bool fill = false);
+    void _drawTriangleTop1DifferentBottoms(int topX, int topY, int middleX, int middleY, int bottomX, int bottomY, byte color, bool fill = false);
     private:
     uint8_t *_frameBuffer;
 

@@ -10,7 +10,7 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
     auto pos = 1 << 19 | GetDataPos();
     EraseCursor();
     //Serial.print("Console: Writing data: "); Serial.print(data); Serial.print(" at position: 0x"); Serial.println(pos, HEX);
-    if(data == 10 && _consoleRunning){
+    if(data == 10 /* && _consoleRunning*/ ){
         if(!useFrameBuffer)
             programmer.WriteByte( pos,data);
         AdvanceCursor(true);
@@ -18,7 +18,7 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
     }
     if(data == 13) return 0; 
 
-    graphics.drawText(_cursorX,_cursorY, data, color, backgroundColor, clearBackround, useFrameBuffer, btVertical);
+    graphics.drawText(_cursorX,_cursorY, data, color, backgroundColor, clearBackround, useFrameBuffer);
     
     if(_consoleRunning && !useFrameBuffer) {
         programmer.WriteByte( pos,data); //write to data space
@@ -234,7 +234,7 @@ bool Console::ReverseCursor()
 
 bool Console::MoveCursorUp()
 {
-    if(_cursorY <= graphics.settings.charHeight + 1) 
+    if(_cursorY <= 0) 
     {
         if(_scrollOffset <= 0) return false;
         

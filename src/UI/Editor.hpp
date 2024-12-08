@@ -42,6 +42,7 @@ class Editor : public Console{
     bool AdvanceCursor(bool nextLine = false);
     bool ReverseCursor();
     bool MoveCursorDown();
+    bool MoveCursorUp();
 
     protected: 
     
@@ -60,6 +61,7 @@ class Editor : public Console{
 
     
     void _drawCursorPosition();
+    void _drawLineNo();
     void _drawColor();
 
     private: 

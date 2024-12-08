@@ -289,14 +289,14 @@ inline void UI::_processInput(TPort port)
         graphics.clear(0,230,graphics.settings.screenWidth, 10);
         byte color = 0xFF;
         //byte colors[blockWidth];
-        char label[3];
+        char label[4];
         
         unsigned long  startTime = millis();
         byte block[blockWidth * blockHeight ];
         for(int x = 1; x < graphics.settings.screenWidth; x+= blockWidth){
             for(int y=1;y < blockHeight * 16; y+= blockHeight){ 
                 memset(block, color, blockWidth * blockHeight);
-                memset(label,0,3);
+                memset(label,0,4);
                 sprintf(label, "%i", color);
                 graphics.drawTextToBuffer(label, block, blockWidth, color ^ 0xFF);
                 graphics.drawBuffer(x, y, blockWidth, blockHeight, block);
@@ -319,8 +319,7 @@ inline void UI::_processInput(TPort port)
         console.write("256 Available Colors", 20,Color::WHITE, true);
            
         
-    }
-    
+    }    
     else if (resp[0] == 'g' || resp[0] == 'G') { //graphics
         int numOfObjects = 100;
         graphics.clear();
@@ -364,6 +363,25 @@ inline void UI::_processInput(TPort port)
         }
         dcStartTime = millis() - dcStartTime;
         Serial.print(".  "); Serial.print(dcStartTime); Serial.println(" ms");
+
+        graphics.clear();
+
+        dtStartTime = millis();
+        Serial.print("Testing filling triangles .. ");
+        dtStartTime = millis();
+        for(int idx = 0; idx < numOfObjects; idx++){
+            graphics.fillTriangle(
+                random(5,graphics.settings.screenWidth - 10), 
+                random(5, graphics.settings.screenHeight - 10), 
+                random(5,graphics.settings.screenWidth - 10), 
+                random(5, graphics.settings.screenHeight - 10), 
+                random(5,graphics.settings.screenWidth - 10), 
+                random(5, graphics.settings.screenHeight - 10), 
+                random(0,255)
+            );
+        }
+        dtStartTime = millis() - dtStartTime;
+        Serial.print(". "); Serial.print(dtStartTime); Serial.println(" ms");
 
         graphics.clear();
 

@@ -231,14 +231,12 @@ bool VRAM::drawLine(Point start, Point end, Color color)
 }
 
 bool VRAM::drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color)
-{
-    return drawLine(x1,y1,x2,y2,color) && drawLine(x2,y2,x3,y3,color) && drawLine(x3, y3, x1, y1, color);
+{   
+    _drawTriangle(x1, y1, x2, y2, x3, y3, color, false);
+    return true;
+    
 }
 
-bool VRAM::drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color)
-{
-    return drawTriangle(x1, y1, x2, y2, x3, y3, color.ToByte());
-}
 
 bool VRAM::drawRect(int x1, int y1, int width, int height, byte color)
 {
@@ -251,11 +249,10 @@ bool VRAM::drawRect(int x1, int y1, int width, int height, byte color)
     if(settings.screenWidth - (width + x1) < width) clipWidth = settings.screenWidth - x1;
     if(settings.screenHeight - (y1 + height) < height) clipHeight = settings.screenHeight - y1; 
 
-    byte buf[clipWidth];
-    memset(buf,color, clipWidth);
-    WriteBytes((y1 << settings.horizontalBits) + x1, buf, clipWidth, btVertical);
+   
+    FillBytes((y1 << settings.horizontalBits) + x1, color, clipWidth);
     
-    WriteBytes(((y1 + clipHeight) << settings.horizontalBits) + x1, buf, clipWidth, btVertical);
+    FillBytes(((y1 + clipHeight) << settings.horizontalBits) + x1, color, clipWidth);
 
     //draw pixeled left and right
     for(byte y=y1; y < y1 + clipHeight; y++){
@@ -372,31 +369,6 @@ bool VRAM::fillCircle(int centerX, int centerY, int radius, byte color)
     }
 
     return true;
-
-    // //divide into 4 quadrants. Figure out for Q1, then negate x for Q2, negate x and y for Q3, negate y for Q4
-    // Rectangle boundRect = Rectangle(centerX - radius,centerY - radius, centerX + radius, centerY + radius);
-    // if(boundRect.x1 < 0) boundRect.x1 = 0;
-    // if(boundRect.y1 < 0) boundRect.y1 = 0;
-    // if(boundRect.width() > settings.screenWidth - boundRect.x1) boundRect.x2 = settings.screenWidth;
-    // if(boundRect.height() > settings.screenHeight - boundRect.y1) boundRect.y2 = settings.screenHeight ;
-    // byte data[boundRect.size()];    
-
-    // //memset(data, 0, boundRect.height() * boundRect.width()); //TODO: consider using global background color or not filling
-    // for(int pxlY = boundRect.y1; pxlY < boundRect.y2; pxlY++){
-    //     for(int pxlX = boundRect.x1; pxlX < boundRect.x2; pxlX ++){
-    //         //test if point is in circle
-    //         double distance = sqrt(pow(abs(pxlX - centerX),2) + pow(abs(pxlY - centerY), 2));
-    //         if(distance < radius){
-    //             data[(pxlX - boundRect.x1)] = color;
-    //         }
-    //         else {
-    //             data[(pxlX - boundRect.x1)] = ReadByte((pxlY << settings.horizontalBits) + pxlX);
-    //         }
-    //     }
-    //     WriteBytes((pxlY << settings.horizontalBits) + boundRect.x1, data, boundRect.width(), btVolatile);
-    // }
-
- 
 }
 
 void VRAM::render()
@@ -408,3 +380,253 @@ void VRAM::render()
     }
     Serial.print(" completed in "); Serial.print(millis() - startTime); Serial.println(" ms.");
 }
+
+
+bool VRAM::_drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color, bool fill)
+{
+
+    // 4 possible configurations of a triangle
+    // 1. All points on same Y
+    // 2. Two points on top
+    // 3. One point on top, bottom two are same y
+    // 4. One point on top, another point below, third on bottom
+
+
+    //char buf[256];
+    uint16_t yMin = y1;
+    if(y2<yMin) yMin = y2;
+    if(y3<yMin) yMin = y3;
+
+    // sprintf(buf,"P1: (% 3d, % 3d)  P2: (% 3d, % 3d)  P3: (% 3d, % 3d)", x1, y1, x2, y2, x3, y3);
+    // drawText(10,20, buf, Color::WHITE);
+    
+
+    //how many virtacies on top y
+    if(y1 == yMin && y2 == yMin && y3 == yMin){
+        //all 3 verticies on same y, draw a line from min to max
+        
+        uint16_t minX = min(min(x1,x2),x3);
+        uint16_t maxX = max(max(x1,x2),x3);
+        drawLine(minX, yMin, maxX, yMin, color);
+    }
+    else if((y1 == yMin && y2 == yMin)){
+       
+        _drawTriangleTop2(x1, x2, y1, x3, y3, color, fill);
+
+    }
+    else if((y1 == yMin && y3 == yMin) ){
+        // two verticies, y1 and y3
+        
+        _drawTriangleTop2(x1, x3, y1, x2, y2, color, fill);
+    }
+    else if((y2 == yMin && y3 == yMin)){
+        
+        // two verticies, y2 and y3
+        _drawTriangleTop2(x2, x3, y2, x1, y1, color, fill);
+    } else{
+        //one verticie at the top, diverge toward next point, then converge towards last point
+        if(y1 < y2 && y1 < y3){    
+          
+            if(y2 == y3){
+                _drawTriangleTop1EqualBottoms(x1, y1, x2, x3, y2, color, fill);
+            }else {
+                bool isY2Middle = y2 < y3;
+                _drawTriangleTop1DifferentBottoms(
+                    x1,y1,  
+                    isY2Middle ? x2 : x3,
+                    isY2Middle ? y2 : y3,  
+                    isY2Middle ? x3 : x2,
+                    isY2Middle ? y3 : y2,  
+                    color,
+                    fill
+                );
+            }
+
+        } 
+        else if(y2 < y1 && y2 < y3){            
+            
+            if(y1 == y3){
+                _drawTriangleTop1EqualBottoms(x2, y2, x1, x3, y1, color, fill);
+            }else {
+                bool isY1Middle = y1 < y3;
+                _drawTriangleTop1DifferentBottoms(
+                    x2,y2,  
+                    isY1Middle ? x1 : x3,
+                    isY1Middle ? y1 : y3,  
+                    isY1Middle ? x3 : x1,
+                    isY1Middle ? y3 : y1,  
+                    color,
+                    fill
+                );
+            }
+            
+        }
+        else if(y3 < y1 && y3 < y2){
+            
+            if(y1 == y2){
+                _drawTriangleTop1EqualBottoms(x3, y3, x1, x2, y1, color, fill);
+            }else {
+                bool isY1Middle = y1 < y2;
+                _drawTriangleTop1DifferentBottoms(
+                    x3,y3,  
+                    isY1Middle ? x1 : x2,
+                    isY1Middle ? y1 : y2,  
+                    isY1Middle ? x2 : x1,
+                    isY1Middle ? y2 : y1,  
+                    color,
+                    fill
+                );
+            }
+        }
+    }
+}
+
+void VRAM::_drawTriangleTop2(int x1, int x2, int topY, int bottomX, int bottomY, byte color, bool fill)
+{
+    //char buf[128];
+    FillBytes((topY << settings.horizontalBits) + min(x1, x2),color,max(x1,x2) - min(x1,x2));
+    //converge towards y3
+    int rowX1 = x1, prevX1 = x1; //line from x1 to x3
+    int rowX2 = x2, prevX2 = x2; // line from x2 to x3
+    bool slope1Vertical = (x1 - bottomX) == 0;
+    bool slope2Vertical = (x2 - bottomX) == 0;
+    float slopeX1 = ((float)(bottomY - topY) / (float)(bottomX - x1)); //rise over run
+    float slopeX2 = ((float)(bottomY - topY) / (float)(bottomX - x2)); //rise over run
+    int yInterceptX1 = -1*(slopeX1 * x1 - topY);    // slopeX1 =  (y1 - yInt) / x1, -1 * (slopeX1 * x1 - y1) = yInt
+    int yInterceptX2 = -1*(slopeX2 * x2 - topY);    // 
+
+    
+    for(int yScan = topY; yScan <= bottomY; yScan++){
+        //memset(buf,0,sizeof(buf));
+        prevX1 = rowX1;
+        prevX2 = rowX2;
+        rowX1 = slope1Vertical ? rowX1 : ((float)(yScan - yInterceptX1 )) / slopeX1; 
+        rowX2 = slope2Vertical ? rowX2 : ((float)(yScan - yInterceptX2 )) / slopeX2; 
+        // sprintf(buf,"(%d,%d)  -  (%d,%d)", rowX1, yScan, rowX2, yScan);
+        // Serial.println(buf);
+        if(fill)
+            FillBytes((yScan << settings.horizontalBits) + min(rowX1,rowX2), color, max(rowX1,rowX2) - min(rowX1,rowX2));        
+        else 
+        {
+            if(slopeX1 < 1.0 && slopeX1 > -1.0)
+                FillBytes((yScan << settings.horizontalBits) + min(prevX1,rowX1), color, max(rowX1, prevX1) - min(rowX1,prevX1));
+            else
+                drawPixel(rowX1, yScan, color);            
+
+            if(slopeX2 < 1.0 && slopeX2 > -1.0)
+                FillBytes((yScan << settings.horizontalBits) + min(prevX2,rowX2), color, max(rowX2, prevX2) - min(rowX2,prevX2));
+            else
+                drawPixel(rowX2, yScan, color);
+        }
+    }
+    
+}
+
+void VRAM::_drawTriangleTop1EqualBottoms(int topX, int topY, int x1, int x2, int bottomY, byte color, bool fill)
+{
+    //char buf[128];
+    float rowX1 = topX, prevX1 = topX; //line from x2 to x1
+    float rowX2 = topX, prevX2 = topX; // line from x3 to x1
+    bool slope1Vertical = (x1 - topX) == 0;
+    bool slope2Vertical = (x2 - topX) == 0;
+    float slopeX1 = ((float)(bottomY - topY) / (float)(x1 - topX)); //rise over run
+    float slopeX2 = ((float)(bottomY - topY) / (float)(x2 - topX)); //rise over run    
+    int yInterceptX1 = -1*((slopeX1 * (float)topX) - topY);    // slopeX1 =  (y1 - yInt) / x1, -1 * (slopeX1 * x1 - y1) = yInt
+    int yInterceptX2 = -1*((slopeX2 * (float)topX) - topY);    // 
+    // sprintf(buf, "P1-P3 = %03.3fx + %d  P2-P3 = %03.3fx + %0d", slopeX1, yInterceptX1, slopeX2, yInterceptX2);
+    // drawText(10,30,buf,Color::BROWN);
+    
+    for(uint16_t yScan = topY; yScan <= bottomY;yScan++){
+        prevX1 = rowX1;
+        prevX2 = rowX2;
+        rowX1 = slope1Vertical ? rowX1 : ((float)(yScan - yInterceptX1 )) / slopeX1; 
+        rowX2 = slope2Vertical ? rowX2 : ((float)(yScan - yInterceptX2 )) / slopeX2; 
+        if(fill)
+            FillBytes((yScan << settings.horizontalBits) + min(rowX1,rowX2), color, max(rowX1,rowX2) - min(rowX1,rowX2));
+         
+        else {
+            if(slopeX1 < 1.0 && slopeX1 > -1.0)
+                FillBytes((yScan << settings.horizontalBits) + min(prevX1,rowX1), color, max(rowX1, prevX1) - min(rowX1,prevX1));
+            else
+                drawPixel(rowX1, yScan, color);            
+
+            if(slopeX2 < 1.0 && slopeX2 > -1.0)
+                FillBytes((yScan << settings.horizontalBits) + min(prevX2,rowX2), color, max(rowX2, prevX2) - min(rowX2,prevX2));
+            else
+                drawPixel(rowX2, yScan, color);
+        }
+    }
+    FillBytes((bottomY << settings.horizontalBits) + min(x1, x2),color,max(x1,x2) - min(x1,x2));    
+
+}
+void VRAM::_drawTriangleTop1DifferentBottoms(int topX, int topY, int middleX, int middleY, int bottomX, int bottomY, byte color, bool fill){
+    float rowX1 = topX, prevX1 = topX; //line from x2 to x1
+    float rowX2 = topX, prevX2 = topX; // line from x3 to x1
+    bool slope1Vertical = (middleX - topX) == 0;
+    bool slope2Vertical = (bottomX - topX) == 0;
+    bool slope3Vertical = (bottomX - middleX) == 0;
+    float slopeX1 = ((float)(middleY - topY) / (float)(middleX - topX)); //rise over run
+    float slopeX2 = ((float)(bottomY - topY) / (float)(bottomX - topX)); //rise over run    
+    float slopeX3 = ((float)(bottomY - middleY)/ (float)(bottomX - middleX));
+    int yInterceptX1 = -1*((slopeX1 * (float)topX) - topY);    // slopeX1 =  (y1 - yInt) / x1, -1 * (slopeX1 * x1 - y1) = yInt
+    int yInterceptX2 = -1*((slopeX2 * (float)topX) - topY);    // 
+    int yInterceptX3 = -1*((slopeX3 * (float)middleX) - middleY);    // 
+
+    //diverge towards middle point
+    for(uint16_t yScan = topY; yScan < middleY;yScan++){
+        prevX1 = rowX1;
+        prevX2 = rowX2;
+        rowX1 = slope1Vertical ? rowX1 : ((float)(yScan - yInterceptX1 )) / slopeX1; 
+        rowX2 = slope2Vertical ? rowX2 : ((float)(yScan - yInterceptX2 )) / slopeX2; 
+
+        if(fill)
+            FillBytes((yScan << settings.horizontalBits) + min(rowX1,rowX2), color, max(rowX1,rowX2) - min(rowX1,rowX2));
+        else {
+            if(slopeX1 < 1.0 || slopeX1 > 1.0 || slope1Vertical){
+                drawPixel(rowX1, yScan, color);
+            }
+            else
+                FillBytes((yScan << settings.horizontalBits) + min(prevX1,rowX1), color, max(rowX1, prevX1) - min(rowX1,prevX1));
+                    
+
+            drawPixel(rowX2, yScan, color);
+
+            if(slopeX2 < 1.0 || slopeX2 > 1.0 || slope2Vertical)
+                drawPixel(rowX2, yScan, color);
+            else
+                FillBytes((yScan << settings.horizontalBits) + min(prevX2,rowX2), color, max(rowX2, prevX2) - min(rowX2,prevX2));
+        }
+
+        
+        
+            
+    }
+    //converge towards bottom point
+    // use slope x3 instead of slipe x1
+    for(uint16_t yScan = middleY; yScan < bottomY;yScan++){
+        prevX1 = rowX1;
+        prevX2 = rowX2;
+        rowX1 = slope3Vertical ? rowX1 : ((float)(yScan - yInterceptX3 )) / slopeX3; 
+        rowX2 = slope2Vertical ? rowX2 : ((float)(yScan - yInterceptX2 )) / slopeX2; 
+
+        if(fill)
+            FillBytes((yScan << settings.horizontalBits) + min(rowX1,rowX2), color, max(rowX1,rowX2) - min(rowX1,rowX2));
+        else {
+            if(slopeX3 < 1.0 || slopeX3 > 1.0 || slope3Vertical)
+                drawPixel(rowX1, yScan, color);            
+            
+            else
+                FillBytes((yScan << settings.horizontalBits) + min(prevX1,rowX1), color, max(rowX1, prevX1) - min(rowX1,prevX1));
+        
+            if(slopeX2 < 1.0 || slopeX2 > 1.0 || slope2Vertical)
+                drawPixel(rowX2, yScan, color);
+            else
+                FillBytes((yScan << settings.horizontalBits) + min(prevX2,rowX2), color, max(rowX2, prevX2) - min(rowX2,prevX2));
+        }
+    }
+    drawPixel(bottomX, bottomY, color);
+
+
+}
+
+

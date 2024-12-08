@@ -52,12 +52,12 @@ void Editor::run()
             case PS2_KEY_UP_ARROW:
                 EraseCursor();
                 MoveCursorUp();
-                _drawCursorPosition();
+                //_drawCursorPosition();
                 break;
             case PS2_KEY_DN_ARROW:
                 EraseCursor();
                 MoveCursorDown();
-                _drawCursorPosition();
+                //_drawCursorPosition();
                 break;          
             
             case PS2_KEY_BS: /* Move cursor back write space move cursor back */
@@ -121,8 +121,9 @@ bool Editor::AdvanceCursor(bool nextLine)
     bool newLine = Console::AdvanceCursor(nextLine);
     
 
-    
+    _drawLineNo();
     _drawCursorPosition();
+    return newLine;
 }
 
 bool Editor::ReverseCursor()
@@ -130,6 +131,7 @@ bool Editor::ReverseCursor()
     if(!Console::ReverseCursor())
         return false;
     
+    _drawLineNo();
     _drawCursorPosition();
     return true;
 }
@@ -155,21 +157,25 @@ void Editor::DrawStatusBar()
     memset(buf,0,256);
     unsigned long startTime = millis();
     graphics.drawRect(0, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth, 9,Color::DARK_GREEN);
-    graphics.fillRect(2, graphics.settings.screenHeight - 9, 6* (graphics.settings.charWidth), 8,Color::FromRGB(2,3,2));
+    graphics.fillRect(2, graphics.settings.screenHeight - 9, 8* (graphics.settings.charWidth), 8,Color::FromRGB(2,3,2));
     sprintf(buf,"Cursor");
     graphics.drawText(2, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::DARK_GREEN, false);
     //_printChars(buf,Color::WHITE, 2, graphics.settings.screenHeight - 9, false);     
     
     _drawCursorPosition();
 
-    graphics.fillRect(79, graphics.settings.screenHeight - 9, graphics.settings.screenWidth - 80, 8, Color::FromRGB(2,3,0));
+    graphics.fillRect(90, graphics.settings.screenHeight - 9, graphics.settings.screenWidth - 80, 9, Color::FromRGB(2,3,0));
+
+    sprintf(buf,"Line:");
+    graphics.drawText(91, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(2,3,0), false);
     
     sprintf(buf,"F2:color     F4:Quit");
-    graphics.drawText(80, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(2,3,0), false);
+    graphics.drawText(150, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(2,3,0), false);
     //_printChars(buf,Color::WHITE, 80, graphics.settings.screenHeight - 9, false);     
     //see where we end up with color text
 
     _drawColor();
+    _drawLineNo();
 
     sprintf(buf, "Draw Status bar took %lu ms", millis() - startTime);
     Serial.println(buf);
@@ -181,11 +187,17 @@ bool Editor::MoveCursorDown()
 {
     if(_cursorY >= graphics.settings.screenHeight - graphics.settings.charHeight - STATUS_BAR_HEIGHT - 2 ) return false; //with 2px padding    
     Console::MoveCursorDown();
+    _drawLineNo();
     _drawCursorPosition();
     return true;
 }
 
-
+bool Editor::MoveCursorUp()
+{
+    Console::MoveCursorUp();
+    _drawLineNo();
+    return false;
+}
 
 void Editor::_drawCursorPosition(){
     //if(!_consoleRunning) return;
@@ -225,14 +237,22 @@ void Editor::_drawCursorPosition(){
 
 }
 
+void Editor::_drawLineNo()
+{
+    char buf[4];
+    graphics.fillRect(150, graphics.settings.screenHeight - 9, 32, 8, Color::FromRGB(1,1,0));
+    sprintf(buf,"%i", (_scrollOffset + _cursorY / 9) + 1);
+    graphics.drawText(152, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(1,1,0), false);
+}
+
 void Editor::_drawColor()
 {
     char buf[4];
-    graphics.fillRect(130, graphics.settings.screenHeight - 9, 24, 8, Color::FromRGB(1,1,0));
-     sprintf(buf,"%i", textColor);
-     graphics.drawText(131, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(1,1,0), false);
+    graphics.fillRect(200, graphics.settings.screenHeight - 9, 32, 8, Color::FromRGB(1,1,0));
+    sprintf(buf,"%i", textColor);
+    graphics.drawText(202, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(1,1,0), false);
     //_printChars(buf,Color::WHITE, 131, graphics.settings.screenHeight - 9, false);  
-    graphics.fillRect(150, graphics.settings.screenHeight - 8, 3, 6, textColor);
+    graphics.fillRect(226, graphics.settings.screenHeight - 8, 5, 6, textColor);
 }
 
 

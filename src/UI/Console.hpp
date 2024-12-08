@@ -121,6 +121,7 @@ class Console : Print{
     bool _cursorState = false;
     bool _cursorVisible = true;
     unsigned long _lastCursorChange = 0;   
+    uint16_t _scrollOffset = 0;
 
     protected:
     inline void SetWindowHeight(int height){ _windowHeight = height;}
@@ -280,7 +281,7 @@ class Console : Print{
     bool _consoleRunning = false;    
     
     uint16_t _lastIdx = 0;
-    uint16_t _scrollOffset = 0;
+    
     uint16_t _windowHeight = 240;
     
 };
