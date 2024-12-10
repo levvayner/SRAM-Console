@@ -263,6 +263,7 @@ uint16_t SRAM::FillBytes(uint32_t startAddr, uint8_t data, uint32_t length, Busy
         SetRow(addr);     
         PIOA->PIO_SODR = PIO_PA29;
         NOP;
+        NOP;
         PIOA->PIO_CODR = PIO_PA29;
         //digitalWrite(PIN_WE, HIGH);
         //NOP;

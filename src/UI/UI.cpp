@@ -129,7 +129,7 @@ void UI::ClearScreen()
 	Serial.print(F("Clearning screen"));    
     
     for(uint16_t line = 0; line < graphics.settings.screenHeight + 1;line++){
-        programmer.FillBytes(line << graphics.settings.horizontalBits, ERASE_BYTE,graphics.settings.screenWidth);
+        programmer.FillBytes(line << graphics.settings.horizontalBits, ERASE_BYTE,graphics.settings.screenWidth + 2);
     }
     Serial.print(F(" : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 	
@@ -332,7 +332,7 @@ inline void UI::_processInput(TPort port)
     }
     else if (resp[0] == 'o' || resp[0] == 'O') { //graphics
         graphics.drawOval(90, 160, 30, 50, Color::BRICK);
-        graphics.drawOval(190, 60, 90, 30, Color::BLUE);
+        graphics.drawOval(190, 120, 30, 100, Color::BLUE);
 
         graphics.fillOval(40, 20, 30, 20, Color::BLUE);
 

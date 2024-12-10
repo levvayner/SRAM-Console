@@ -45,14 +45,14 @@ struct TrinagleLegDrawObject : public TriangleLeg{
 
 struct Rectangle{
     public:
-    uint16_t x1;
-    uint16_t x2;
-    uint16_t y1;
-    uint16_t y2;
+    int16_t x1;
+    int16_t x2;
+    int16_t y1;
+    int16_t y2;
 
-    uint32_t width(){ return abs(x2 - x1);}
-    uint32_t height(){ return abs(y2 - y1);}
-    uint32_t size() { return width() * height();}
+    int16_t width(){ return x2 > x1 ? x2 - x1 : x1 - x2; } // abs(x2 - x1);}
+    int16_t height(){ return y2 > y1 ? y2 - y1: y1 - y2; } // abs(y2 - y1);}
+    int32_t size() { return width() * height();}
 
     Rectangle(Point p1, Point p2){
         x1 = p1.x;
@@ -60,7 +60,7 @@ struct Rectangle{
         y1 = p1.y;
         y2 = p2.y;
     }
-    Rectangle( uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2){
+    Rectangle( int16_t x1, int16_t y1, int16_t x2, int16_t y2){
         this->x1 = x1;
         this->x2 = x2;
         this->y1 = y1;
@@ -105,10 +105,10 @@ class VRAM : public SRAM{
         virtual bool drawPixel(int x, int y, byte color = 0xFF, BusyType busyType = btAny);
         virtual bool drawPixel(int x, int y, Color color, BusyType busyType = btAny);
 
-        virtual bool drawLine(int x1, int y1, int x2, int y2, byte color = 0xFF);
-        virtual bool drawLine (Point start, Point end, byte color);
-        virtual bool drawLine(int x1, int y1, int x2, int y2, Color color = Color::WHITE);
-        virtual bool drawLine (Point start, Point end, Color color = Color::WHITE);
+        virtual bool drawLine(int x1, int y1, int x2, int y2, byte color = 0xFF, BusyType busyType = btAny);
+        virtual bool drawLine (Point start, Point end, byte color, BusyType busyType = btAny);
+        virtual bool drawLine(int x1, int y1, int x2, int y2, Color color = Color::WHITE, BusyType busyType = btAny);
+        virtual bool drawLine (Point start, Point end, Color color = Color::WHITE, BusyType busyType = btAny);
 
         virtual bool drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color = 0xFF);
         virtual bool drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color)

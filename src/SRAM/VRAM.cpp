@@ -176,7 +176,7 @@ bool VRAM::drawPixel(int x, int y, Color color, BusyType busyType)
     return drawPixel(x,y, color.ToByte());
 }
 
-bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
+bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color, BusyType busyType)
 {
     // find slope, increment from x1 to x2, changing y by slope
     if(x2 == x1) { //vertical line
@@ -187,7 +187,7 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
     }
     //horizontal
     if(y2 == y1){
-        FillBytes((y1 << settings.horizontalBits) + min(x1,x2), color, abs(x2-x1));
+        FillBytes((y1 << settings.horizontalBits) + min(x1,x2), color, abs(x2-x1), busyType);
         
         return true;
     }
@@ -215,19 +215,19 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
     return true;
 }
 
-bool VRAM::drawLine(Point start, Point end, byte color)
+bool VRAM::drawLine(Point start, Point end, byte color, BusyType busyType)
 {
-    return drawLine(start.x, start.y, end.x, end.y, color);
+    return drawLine(start.x, start.y, end.x, end.y, color, busyType);
 }
 
-bool VRAM::drawLine(int x1, int y1, int x2, int y2, Color color)
+bool VRAM::drawLine(int x1, int y1, int x2, int y2, Color color, BusyType busyType)
 {
-    return drawLine(x1, y1, x2, y2, color.ToByte());
+    return drawLine(x1, y1, x2, y2, color.ToByte(), busyType);
 }
 
-bool VRAM::drawLine(Point start, Point end, Color color)
+bool VRAM::drawLine(Point start, Point end, Color color, BusyType busyType)
 {
-    return drawLine(start.x, start.y, end.x, end.y, color.ToByte());
+    return drawLine(start.x, start.y, end.x, end.y, color.ToByte(), busyType);
 }
 
 bool VRAM::drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color)
@@ -432,21 +432,27 @@ void VRAM::drawOval(int centerX, int centerY, int width, int height, byte color)
     {
         int x1 = x0 - (dx - 1);  // try slopes of dx - 1 or more
         for ( ; x1 > 0; x1--){        
-            //if(centerX -x1 > 0 && centerY -y > 0)
-                drawPixel(centerX - x1, centerY - y, color, btVolatile);
-        
-            //if(centerX + x1 < settings.screenWidth && centerY + y < settings.screenHeight)
-                drawPixel(centerX + x1, centerY + y, color, btVolatile);
-                
-            //if(centerX + x1 < settings.screenWidth && centerY -y > 0)
-                drawPixel(centerX + x1, centerY - y, color, btVolatile);
-
-            //if(centerX -x1 > 0 && centerY + y < settings.screenHeight)
-                drawPixel(centerX - x1, centerY + y, color, btVolatile);    
+             drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color, btVolatile);
+             drawLine(centerX + x0, centerY + y, centerX + x1, centerY + y, color, btVolatile);
+             drawLine(centerX + x0, centerY - y, centerX + x1, centerY - y, color, btVolatile);
+             drawLine(centerX - x1, centerY + y, centerX - x0, centerY + y, color, btVolatile);
             if (x1*x1*hh + y*y*ww <= hhww)
                 break;
         }
+        //if(centerX -x1 > 0 && centerY -y > 0)
+            //     drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color);
         
+            // //if(centerX + x1 < settings.screenWidth && centerY + y < settings.screenHeight)
+            //     //drawPixel(centerX + x1, centerY + y, color, btVolatile);
+            //     drawLine(centerX + x1, centerY + y, centerX + x0, centerY + y, color);
+                
+            // //if(centerX + x1 < settings.screenWidth && centerY -y > 0)
+            //     //drawPixel(centerX + x1, centerY - y, color, btVolatile);
+            //     drawLine(centerX + x1, centerY - y, centerX + x0, centerY - y, color);
+
+            // //if(centerX -x1 > 0 && centerY + y < settings.screenHeight)
+            //     //drawPixel(centerX - x1, centerY + y, color, btVolatile);    
+            //     drawLine(centerX - x1, centerY + y, centerX - x0, centerY + y, color);
         dx = x0 - x1;  // current approximation of the slope
         x0 = x1;
     }
@@ -459,7 +465,6 @@ void VRAM::fillOval(int centerX, int centerY, int width, int height, byte color)
     int hhww = hh * ww;
     int x0 = width;
     int dx = 0;
-    char buf[256];
 
     // do the horizontal diameter
     int diameter = width << 1;
