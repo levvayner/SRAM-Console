@@ -286,7 +286,7 @@ inline void UI::_processInput(TPort port)
         int blockWidth = ceil(graphics.settings.screenWidth / 16); //rather push off screen a bit
         int blockHeight = ceil((graphics.settings.screenHeight - 14) / 16);
         //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
-        graphics.clear(0,230,graphics.settings.screenWidth, 10);
+        graphics.clear(0,260,graphics.settings.screenWidth, graphics.settings.screenHeight - 260);
         byte color = 0xFF;
         //byte colors[blockWidth];
         char label[4];

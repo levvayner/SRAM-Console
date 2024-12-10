@@ -143,12 +143,13 @@ void SRAM::SetAddress(uint32_t addr) {
 
     
     //address bits 8-11
-    REG_PIOB_CODR = 0xF << 17;
-    REG_PIOB_SODR = ((addr >> 12) & 0xF)  << 17;
-
-    //address bits 12-15
     REG_PIOD_CODR = 0xF;
     REG_PIOD_SODR = ((addr >> 8) & 0xF);
+
+
+    //address bits 12-15
+    REG_PIOB_CODR = 0xF << 17;
+    REG_PIOB_SODR = ((addr >> 12) & 0xF)  << 17;
 
     //Address bits 16-19: Port C, pins 21-25 (unverified)
     REG_PIOC_CODR = 0xF << 21;
@@ -157,15 +158,8 @@ void SRAM::SetAddress(uint32_t addr) {
     #endif
 
 }
-void SRAM::SetDataLines(uint8_t data) {
-    #ifdef USE_PORT_IO
-        PORTL = data;
-    #else
-        REG_PIOC_CODR = 0xFF << 1;
-        REG_PIOC_SODR = (data & 0xFF) << 1;
-    #endif
-	
-}
+
+
 
 #pragma endregion
 
@@ -181,7 +175,7 @@ uint8_t SRAM::ReadByte(uint32_t addr) {
     #ifdef USE_PORT_IO
         uint8_t readValue = PINL;
     #else        
-        PIOC->PIO_ODR |= (0xFF << 1);
+        //PIOC->PIO_ODR |= (0xFF << 1);
         uint8_t readValue =  (PIOC->PIO_PDSR >> 1) & 0xFF;	  
     #endif
     DeviceOff();
@@ -205,7 +199,7 @@ size_t SRAM::ReadBytes(uint32_t addr, uint8_t *buffer, uint32_t length)
             uint8_t readValue = PINL;
         #else        
             
-            PIOC->PIO_ODR |= (0xFF << 1);
+            //PIOC->PIO_ODR |= (0xFF << 1);
             buffer[curAddr - addr] = (PIOC->PIO_PDSR >> 1) & 0xFF;            
             //Serial.print("Read byte 0x"); Serial.print(val); Serial.print(" at index "); Serial.print(curAddr - addr); Serial.print(" from address 0x");	  Serial.println(curAddr, HEX);
            
@@ -228,13 +222,13 @@ uint16_t SRAM::WriteBytes(uint32_t addr, uint8_t *data, uint32_t length, BusyTyp
     #endif
     DeviceWrite();
     uint16_t idx = 0;
-    
+    SetAddress(addr);
     while(idx < length){
         
-        SetAddress(addr);
+        SetRow(addr);
         SetDataLines(data[idx]);
         PIOA->PIO_SODR = PIO_PA29;
-        //NOP;
+        NOP;
         PIOA->PIO_CODR = PIO_PA29;
         
         // digitalWrite(PIN_WE, HIGH);
@@ -264,11 +258,11 @@ uint16_t SRAM::FillBytes(uint32_t startAddr, uint8_t data, uint32_t length, Busy
     uint16_t idx = 0;
     uint32_t addr = startAddr;
     SetDataLines(data);
-    
+    SetAddress(addr);   
     while(idx < length){
-        SetAddress(addr);        
+        SetRow(addr);     
         PIOA->PIO_SODR = PIO_PA29;
-        //NOP;
+        NOP;
         PIOA->PIO_CODR = PIO_PA29;
         //digitalWrite(PIN_WE, HIGH);
         //NOP;
@@ -301,7 +295,7 @@ void SRAM::Erase(uint32_t startAddress, uint32_t length)
         while(idx <  minLegth){
             SetAddress(pos + idx);           
             PIOA->PIO_SODR = PIO_PA29;
-            //NOP;
+            NOP;
             PIOA->PIO_CODR = PIO_PA29;
             idx++;            
         };       

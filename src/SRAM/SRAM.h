@@ -63,7 +63,42 @@ private:
 protected:
 
 	void SetAddress(uint32_t addr);
-	void SetDataLines(uint8_t data);
+    void inline SetColumn(uint32_t column){
+        //set bits 11 - 19
+        //address bit 11
+        REG_PIOD_CODR = 0x1 << 3;
+        REG_PIOD_SODR = (column & 0x1) << 3;
+
+
+        //address bits 12-15
+        REG_PIOB_CODR = 0xF << 17;
+        REG_PIOB_SODR = ((column >> 1) & 0xF)  << 17;
+
+        //Address bits 16-19: Port C, pins 21-25 (unverified)
+        REG_PIOC_CODR = 0xF << 21;
+        REG_PIOC_SODR = ((column >> 5) & 0xF) << 21;
+
+    }
+    void inline SetRow(uint32_t addr)
+    {
+    //lower address bits 0-7
+        REG_PIOC_CODR = 0xFF << 12;
+        REG_PIOC_SODR = (addr & 0xFF) << 12;
+
+        
+        //address bits 8, 9
+        REG_PIOD_CODR = 0x3;
+        REG_PIOD_SODR = ((addr >> 8) & 0x3);
+    }
+	void inline SetDataLines(uint8_t data)
+    {
+    #ifdef USE_PORT_IO
+        PORTL = data;
+    #else
+        REG_PIOC_CODR = 0xFF << 1;
+        REG_PIOC_SODR = (data & 0xFF) << 1;
+    #endif
+    }
 
 	void BinToSerial(uint8_t var);
 	
