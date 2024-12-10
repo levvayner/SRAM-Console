@@ -102,8 +102,8 @@ class VRAM : public SRAM{
 
         virtual void drawBuffer(int x, int y, int width, int height, const byte* buffer);
 
-        virtual bool drawPixel(int x, int y, byte color = 0xFF);
-        virtual bool drawPixel(int x, int y, Color color);
+        virtual bool drawPixel(int x, int y, byte color = 0xFF, BusyType busyType = btAny);
+        virtual bool drawPixel(int x, int y, Color color, BusyType busyType = btAny);
 
         virtual bool drawLine(int x1, int y1, int x2, int y2, byte color = 0xFF);
         virtual bool drawLine (Point start, Point end, byte color);

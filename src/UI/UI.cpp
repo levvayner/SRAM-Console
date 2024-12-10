@@ -320,6 +320,16 @@ inline void UI::_processInput(TPort port)
            
         
     }
+    else if (resp[0] == 'c' || resp[0] == 'C') { //graphics
+        graphics.drawCircle(90, 160, 30, Color::BRICK);
+        graphics.drawCircle(190, 60, 90,Color::BLUE);
+
+        graphics.drawCircle(40, 20, 30, Color::BLUE);
+
+        graphics.fillCircle(210, 150, 50, Color::BLUE);
+        graphics.drawCircle(30, 150, 150, Color::BLUE);
+        graphics.fillCircle(90, 130, 50,  Color::GREEN);
+    }
     else if (resp[0] == 'o' || resp[0] == 'O') { //graphics
         graphics.drawOval(90, 160, 30, 50, Color::BRICK);
         graphics.drawOval(190, 60, 90, 30, Color::BLUE);
@@ -327,6 +337,8 @@ inline void UI::_processInput(TPort port)
         graphics.fillOval(40, 20, 30, 20, Color::BLUE);
 
         graphics.fillOval(210, 150, 50, 25, Color::BLUE);
+        graphics.fillOval(30, 150, 150, 55, Color::BLUE);
+        graphics.fillOval(90, 130, 150, 55, Color::GREEN);
     }
     
     else if (resp[0] == 't' || resp[0] == 'T') { //graphics
@@ -451,20 +463,40 @@ inline void UI::_processInput(TPort port)
         graphics.clear();
 
         console.SetPosition(0,0);
-        sprintf(buf,"Drawing %i triangles:  %lu ms", numOfObjects, dtStartTime);
+        sprintf(buf,"Drawing %i triangles:  % 5lu ms", numOfObjects, dtStartTime);
         console.println(buf);
-        sprintf(buf,"Drawing %i rectangles: %lu ms", numOfObjects, drStartTime);
+        sprintf(buf,"Drawing %i rectangles: % 5lu ms", numOfObjects, drStartTime);
         console.println(buf);
-        sprintf(buf,"Drawing %i circles:    %lu ms", numOfObjects, dcStartTime);
+        sprintf(buf,"Drawing %i circles:    % 5lu ms", numOfObjects, dcStartTime);
         console.println(buf);
-        sprintf(buf,"Filling %i triangles:  %lu ms", numOfObjects, ftStartTime);
+        sprintf(buf,"Drawing %i ovals:      % 5lu ms", numOfObjects, doStartTime);
         console.println(buf);
-        sprintf(buf,"Filling %i rectangles: %lu ms", numOfObjects, frStartTime);
+        sprintf(buf,"Filling %i triangles:  % 5lu ms", numOfObjects, ftStartTime);
         console.println(buf);
-        sprintf(buf,"Filling %i circles:    %lu ms", numOfObjects, fcStartTime);
+        sprintf(buf,"Filling %i rectangles: % 5lu ms", numOfObjects, frStartTime);
+        console.println(buf);
+        sprintf(buf,"Filling %i circles:    % 5lu ms", numOfObjects, fcStartTime);
+        console.println(buf);
+        sprintf(buf,"Filling %i ovals:      % 5lu ms", numOfObjects, foStartTime);
         console.println(buf);
 
-        sprintf(buf,"\n-------------------------\n Congradulations\n\n    You are farming a potato!");
+        unsigned long totalTime = dtStartTime + drStartTime + dcStartTime + doStartTime + ftStartTime + frStartTime + fcStartTime + foStartTime;
+        sprintf(buf, "--------------------------------");
+        console.println(buf);
+        sprintf(buf,"Total rendering time:   % 5lu ms", totalTime);
+        console.println(buf);
+        if(totalTime >  4000){
+            sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are farming a potato!");
+        }
+        else if( totalTime > 2000)
+        {
+            sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are working with a video card!");
+        }
+        else{
+            sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are blazing fast!");
+        }
+
+        
         console.println(buf);
 
         

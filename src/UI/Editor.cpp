@@ -215,8 +215,11 @@ void Editor::_drawCursorPosition(){
     //graphics.drawText(x + 2, y + 2, label,color ^ 0xFF, color, false);
             
                      
-    
-    
+    memset(block, Color::LIGHT_GREEN, 8 * graphics.settings.charWidth * graphics.settings.charHeight);                
+    sprintf(label,"%d",GetDataPos());    
+    graphics.drawTextToBuffer(label, block, 8 * graphics.settings.charWidth , Color::NAVY_BLUE); 
+    graphics.drawBuffer(300, graphics.settings.screenHeight - 9 , 8 * graphics.settings.charWidth , graphics.settings.charHeight, block);
+
     // //cursor x
     // memset(buf,0,9);
     // graphics.fillRect(6* (graphics.settings.charWidth) + 4, graphics.settings.screenHeight - 9, 18, 8,Color::LIME);    

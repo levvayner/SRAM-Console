@@ -120,12 +120,16 @@ void Console::_drawTextFromRam()
 {
     uint32_t pos = _scrollOffset * (charsPerLine);
     uint32_t endPos = min(_lastIdx, (_windowHeight / graphics.settings.charHeight) * charsPerLine);
+
+    if(endPos < pos) return; // nothing to print
     
     //check how many bytes we can fit, updat end pos accordingly.
     char buf[charsPerLine + 1];
     byte colorBuf[charsPerLine];
     uint8_t lineBuf[graphics.settings.charHeight * graphics.settings.screenWidth];
 
+    // sprintf(buf, "%d to %u", pos, endPos);
+    // Serial.print(buf);
     //programmer.ReadBytes(pos | (1 << 19), buf, endPos - pos + 1 );
     
 
@@ -133,14 +137,14 @@ void Console::_drawTextFromRam()
     clear();        
     char textBuf[128];
 
-    for(uint32_t line = 0; line < (ceil(( endPos - pos + 1) / charsPerLine)); line++){      
+    for(uint32_t line = 0; line < (ceil(( endPos - pos + 1) / charsPerLine) + 1); line++){      
         bool lineHasText = false;
         uint16_t lineLength =  min(endPos - pos, charsPerLine );
         memset(buf, 0, charsPerLine + 1);
         memset(lineBuf,backgroundColor, graphics.settings.charHeight * graphics.settings.screenWidth );
         //for(uint16_t idx = 0; idx < charsPerLine; idx++){
-        programmer.ReadBytes((pos + (line * (charsPerLine + 1))) | (1 << 19), (uint8_t*)buf, lineLength);
-        programmer.ReadBytes((pos + (line * (charsPerLine + 1))) | (3 << 18) , (uint8_t*)colorBuf, lineLength);
+        programmer.ReadBytes((pos + (line * (charsPerLine ))) | (1 << 19), (uint8_t*)buf, lineLength);
+        programmer.ReadBytes((pos + (line * (charsPerLine ))) | (3 << 18) , (uint8_t*)colorBuf, lineLength);
         
             //char val = programmer.ReadByte( (pos + (line * charsPerLine) + idx) | 1 << 19 );
             
@@ -247,7 +251,7 @@ bool Console::MoveCursorUp()
         DrawCursor();
     }
 
-    _cursorY -= graphics.settings.charHeight;
+    if(_cursorY > 0) _cursorY -= graphics.settings.charHeight;
     _cursorState = true;
     DrawCursor();
     return true;

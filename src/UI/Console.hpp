@@ -106,7 +106,7 @@ class Console : Print{
     /// @brief Calculates the array offset for current position
     /// number of chars across the screen * number of rows above current + ( x position / char width)
     /// @return Returns the offset in the data array for the current character 
-    virtual inline uint16_t GetDataPos(){ return ((_cursorY - 1 >= 0) ? (_cursorY / graphics.settings.charHeight) + _scrollOffset : 0) * ((graphics.settings.screenWidth / graphics.settings.charWidth) + 1 )+ (_cursorX / graphics.settings.charWidth);}
+    virtual inline uint16_t GetDataPos(){ return ((_cursorY / graphics.settings.charHeight) + _scrollOffset) * ((graphics.settings.screenWidth / graphics.settings.charWidth))+ (_cursorX / graphics.settings.charWidth);}
     
     
 

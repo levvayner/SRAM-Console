@@ -164,14 +164,14 @@ void VRAM::drawBuffer(int x, int y, int width, int height, const byte *buffer)
     }    
 }
 
-bool VRAM::drawPixel(int x, int y, byte color)
+bool VRAM::drawPixel(int x, int y, byte color, BusyType busyType)
 {
     if(x < 0 || x > settings.screenWidth) return false;
     if(y < 0 || y > settings.screenHeight) return false;
-    return WriteByte((y << settings.horizontalBits) + x, color);
+    return WriteByte((y << settings.horizontalBits) + x, color, busyType);
 }
 
-bool VRAM::drawPixel(int x, int y, Color color)
+bool VRAM::drawPixel(int x, int y, Color color, BusyType busyType)
 {
     return drawPixel(x,y, color.ToByte());
 }
@@ -187,7 +187,7 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color)
     }
     //horizontal
     if(y2 == y1){
-        FillBytes(y1 << settings.horizontalBits + min(x1,x2), color, abs(x2-x1));
+        FillBytes((y1 << settings.horizontalBits) + min(x1,x2), color, abs(x2-x1));
         
         return true;
     }
@@ -350,20 +350,53 @@ bool VRAM::drawArc(int x, int y, int startAngle, int endAngle, int radius, byte 
 
 bool VRAM::fillCircle(int centerX, int centerY, int radius, byte color)
 {
-
     int x = 0, y = -radius, p = -radius;
+    int startX = 0, width = 0;
     while(x < -y){
         if(p > 0){
             //end of line reached
             y += 1;
-            p += 2*(x+y) + 1;
+            p += 2*(x+y) + 1;            
         } else{
             p += 2*x + 1;
         }
-        drawLine(centerX - x, centerY + y, centerX + x, centerY + y, color); // top
-        drawLine(centerX - y, centerY + x, centerX + y, centerY + x, color); // second
-        drawLine(centerX - y, centerY - x, centerX + y, centerY - x, color); // third
-        drawLine(centerX - x, centerY - y, centerX + x, centerY - y, color); // bottom
+        
+        if((centerY + y) >= 0 && (centerY + y) < settings.screenHeight){
+            startX = centerX - x;
+            width = abs(x) << 1;
+            if(startX < 0){
+                width += startX;
+                startX = 0;
+            }
+            FillBytes(((centerY + y) << settings.horizontalBits) + startX, color, width); //top
+        }
+        if((centerY + x) >= 0 && (centerY + x) < settings.screenHeight){
+            startX = centerX + y;
+            width = abs(y) << 1;
+            if(startX < 0){
+                width += startX;
+                startX = 0;
+            }
+            FillBytes(((centerY + x) << settings.horizontalBits) + startX, color, width);
+        }
+        if((centerY - x) >= 0 && (centerY - x) < settings.screenHeight){
+            startX = centerX + y;
+            width = abs(y) << 1;
+            if(startX < 0){
+                width += startX;
+                startX = 0;
+            }
+            FillBytes(((centerY - x) << settings.horizontalBits) + startX, color, width);
+        }
+        if((centerY - y) >= 0 && (centerY - y) < settings.screenHeight){            
+            startX = centerX - x;
+            width = abs(x) << 1;
+            if(startX < 0){
+                width += startX;
+                startX = 0;
+            }
+            FillBytes(((centerY - y) << settings.horizontalBits) + startX, color, width); //bottom
+        }
     
         x += 1;
     }
@@ -389,21 +422,31 @@ void VRAM::drawOval(int centerX, int centerY, int width, int height, byte color)
     int x0 = width;
     int dx = 0;
 
-    drawPixel(centerX - width, centerY, color);
-    drawPixel(centerX + width, centerY, color);
+    //if(centerX - width > 0)
+        drawPixel(centerX - width, centerY, color);
+    //if(centerX + width < settings.screenWidth)
+        drawPixel(centerX + width, centerY, color);
 
     // now do both halves at the same time, away from the diameter
     for (int y = 1; y <= height; y++)
     {
         int x1 = x0 - (dx - 1);  // try slopes of dx - 1 or more
-        for ( ; x1 > 0; x1--){
-            drawPixel(centerX - x1, centerY - y, color);
-            drawPixel(centerX + x1, centerY + y, color);
-            drawPixel(centerX + x1, centerY - y, color);
-            drawPixel(centerX - x1, centerY + y, color);
+        for ( ; x1 > 0; x1--){        
+            //if(centerX -x1 > 0 && centerY -y > 0)
+                drawPixel(centerX - x1, centerY - y, color, btVolatile);
+        
+            //if(centerX + x1 < settings.screenWidth && centerY + y < settings.screenHeight)
+                drawPixel(centerX + x1, centerY + y, color, btVolatile);
+                
+            //if(centerX + x1 < settings.screenWidth && centerY -y > 0)
+                drawPixel(centerX + x1, centerY - y, color, btVolatile);
+
+            //if(centerX -x1 > 0 && centerY + y < settings.screenHeight)
+                drawPixel(centerX - x1, centerY + y, color, btVolatile);    
             if (x1*x1*hh + y*y*ww <= hhww)
                 break;
         }
+        
         dx = x0 - x1;  // current approximation of the slope
         x0 = x1;
     }
@@ -416,22 +459,58 @@ void VRAM::fillOval(int centerX, int centerY, int width, int height, byte color)
     int hhww = hh * ww;
     int x0 = width;
     int dx = 0;
+    char buf[256];
 
     // do the horizontal diameter
-    FillBytes((centerY << settings.horizontalBits) + centerX - width, color, width << 1);
-    // drawPixel(centerX - width, centerY, color);
-    // drawPixel(centerX + width, centerY, color);
+    int diameter = width << 1;
+    int leftEdge = centerX - width;
+    //uint16_t rightEdge = centerX + width;
 
+    if(leftEdge < 0){
+        diameter -= (centerX - width) * -1;
+        leftEdge = 0;
+    }
+
+    diameter = min(diameter, settings.screenWidth - leftEdge);
+
+    // sprintf(buf,"Filling oval with center (%d,%d), width %d, height: %d, left edge of %d and diameter %d",
+    //     centerX, centerY, width, height, leftEdge, diameter
+    // );
+    // Serial.println(buf);
+    
+    FillBytes((centerY << settings.horizontalBits) + leftEdge, color, diameter, btVolatile);
     // now do both halves at the same time, away from the diameter
+    
     for (int y = 1; y <= height; y++)
     {
         int x1 = x0 - (dx - 1);  // try slopes of dx - 1 or more
-        for ( ; x1 > 0; x1--){
-            FillBytes(((centerY - y) << settings.horizontalBits) + centerX - x1, color, x1 << 1);
-            FillBytes(((centerY + y) << settings.horizontalBits) + centerX - x1, color, x1 << 1);
+        for ( ; x1 > 0; x1--){            
             if (x1*x1*hh + y*y*ww <= hhww)
                 break;
         }
+        leftEdge = centerX - x1;
+        diameter =  x1 << 1;
+        if(leftEdge < 0) {
+            leftEdge = 0;
+            diameter -= (centerX - x1) * -1;
+        }
+        
+        if(centerY - y > 0){
+            drawLine(centerX - x1, centerY - y, centerX + x1, centerY - y, color);
+            FillBytes(((centerY - y) << settings.horizontalBits) + leftEdge, color, diameter, btVolatile);
+            // sprintf(buf,"Filling top half from (%d,%d) to (%d,%d)",
+            //     leftEdge, centerY - y, leftEdge + diameter, centerY - y
+            // );
+            // Serial.println(buf);
+        }
+        if(centerY + y > 0){
+            FillBytes(((centerY + y) << settings.horizontalBits) + leftEdge, color, diameter, btVolatile);
+            // sprintf(buf,"Filling bottom half from (%d,%d) to (%d,%d)",
+            //     leftEdge, centerY + y, leftEdge + diameter, centerY + y
+            // );
+            // Serial.println(buf);
+        }
+            
         dx = x0 - x1;  // current approximation of the slope
         x0 = x1;
     }
@@ -529,6 +608,7 @@ bool VRAM::_drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte co
             }
         }
     }
+    return true;
 }
 
 void VRAM::_drawTriangleTop2(int x1, int x2, int topY, int bottomX, int bottomY, byte color, bool fill)
