@@ -10,6 +10,7 @@ extern UI ui;
 
 SRAM::SRAM()
 {
+    
     /*      Memory addressing is 20 bits wide (A0 - A19) with A0-A15 connected to a bus shared with the timing circuit.
             Bits 0 to 7 are connected to Port C, pins 12 to 19
             Bits 8 to 11 are connected to port D pins 1 to 4
@@ -17,22 +18,34 @@ SRAM::SRAM()
             Bits 16 to 19 are connected to port A pins 14 to 17
     */
     //Set up address bits by setting to gpio mode and output mode
-    PIOC->PIO_PER |= 0xFF << 12;    // address bits 0 - 7
-    PIOC->PIO_OER |= 0xFF << 12;
+    // PIOC->PIO_PER |= 0xFF << 12;    // address bits 0 - 7
+    // PIOC->PIO_OER |= 0xFF << 12;
     
-    PIOD->PIO_PER |= 0xF;           // address bits 8-11
-    PIOD->PIO_OER |= 0xF;
-    PIOB->PIO_PER |= 0xF << 17;     // address bits 12-15
-    PIOB->PIO_OER |= 0xF << 17;
+    // PIOD->PIO_PER |= 0xF;           // address bits 8-11
+    // PIOD->PIO_OER |= 0xF;
+    // PIOB->PIO_PER |= 0xF << 17;     // address bits 12-15
+    // PIOB->PIO_OER |= 0xF << 17;
 
-    PIOC->PIO_PER |= 0xF << 21;     // address bits 16-19
-    PIOC->PIO_OER |= 0xF << 21;
+    // PIOC->PIO_PER |= 0xF << 21;     // address bits 16-19
+    // PIOC->PIO_OER |= 0xF << 21;
+    // USART2->US_CR = US_CR_TXDIS;//Disables USART2 TX
+    // USART2->US_CR = US_CR_RXDIS;//Disables USART2 RX
+
+    PIOD->PIO_PER = 0x7FF;         // address bits 0 - 10 //enable
+    PIOD->PIO_OER = 0x7FF;         //set as output
+    
+    PIOC->PIO_PER = 0x1FF << 1;     // address bits 11-19
+    PIOC->PIO_OER = 0x1FF << 1;
+
+    PIOC->PIO_PER = 0xFF << 12;    //enable data pins
+   
+    
     
     //enable peripheral clocks. TODO: verify if this is needed
-    PMC->PMC_PCER0 |= PMC_PCER0_PID11;
-    PMC->PMC_PCER0 |= PMC_PCER0_PID12;
-    PMC->PMC_PCER0 |= PMC_PCER0_PID13;
-    PMC->PMC_PCER0 |= PMC_PCER0_PID14;
+    // PMC->PMC_PCER0 |= PMC_PCER0_PID11;
+    // PMC->PMC_PCER0 |= PMC_PCER0_PID12;
+    // PMC->PMC_PCER0 |= PMC_PCER0_PID13;
+    // PMC->PMC_PCER0 |= PMC_PCER0_PID14;
 
 
 
@@ -42,15 +55,15 @@ SRAM::SRAM()
     PIOA->PIO_PUDR = PIO_PA13;
 
     //pinMode(16,INPUT);
-    //enable and set as input, diable pullup D15, VERTICAL_VISIBLE (active LOW)
-    PIOD->PIO_PER = PIO_PD5;
-    PIOD->PIO_ODR = PIO_PD5;
-    PIOD->PIO_PUDR = PIO_PD5;
+    //enable and set as input, diable pullup D8  /*D15*/, VERTICAL_VISIBLE (active LOW) C22
+    PIOC->PIO_PER = PIO_PC22;
+    PIOC->PIO_ODR = PIO_PC22;
+    PIOC->PIO_PUDR = PIO_PC22;
 
-    //enable and set as input, diable pullup D14, HORIZONTAL_VISIBLE (active HIGH)
-    PIOD->PIO_PER = PIO_PD4;
-    PIOD->PIO_ODR = PIO_PD4;
-    PIOD->PIO_PUDR = PIO_PD4;
+    //enable and set as input, diable pullup D9 D14, HORIZONTAL_VISIBLE (active HIGH) C21
+    PIOC->PIO_PER = PIO_PC21;
+    PIOC->PIO_ODR = PIO_PC21;
+    PIOC->PIO_PUDR = PIO_PC21;
 
     //enable and set as output D4 WE
     PIOA->PIO_PER = PIO_PA29;
@@ -86,7 +99,7 @@ void SRAM::DeviceOff() {
     #endif
     
     //set pins as input
-    PIOC->PIO_ODR |= 0xFF << 1;
+    PIOC->PIO_ODR = 0xFF << 12;
     
     ramState = dsOff;	
 }
@@ -98,7 +111,7 @@ void SRAM::DeviceOutput() {
 	}
 
     //set pins as input
-    PIOC->PIO_ODR |= (0xFF << 1);
+    PIOC->PIO_ODR = (0xFF << 12);
     
 	if (ramState == dsOff) {
         #ifdef PIN_CE
@@ -118,7 +131,7 @@ void SRAM::DeviceWrite() {
 	}
 
     //set pins as output
-    PIOC->PIO_OER |= 0xFF << 1;
+    PIOC->PIO_OER = 0xFF << 12;
     
 	if (ramState == dsOff) {
         #ifdef PIN_CE
@@ -130,34 +143,34 @@ void SRAM::DeviceWrite() {
 	ramState = dsWrite; //update state
 }
 //MAX ADDR is 1048575 with 20 address lines
-void SRAM::SetAddress(uint32_t addr) {
-	//each bit of address is going to addr pin 0 - 10. 
-    #if defined(__AVR_MEGA__)
-        PORTA = addr & 0xFF;
-        PORTC = addr >> 8;
-	#elif defined(ARDUINO_SAM_DUE)
+// void SRAM::SetAddress(uint32_t addr) {
+// 	//each bit of address is going to addr pin 0 - 10. 
+//     #if defined(__AVR_MEGA__)
+//         PORTA = addr & 0xFF;
+//         PORTC = addr >> 8;
+// 	#elif defined(ARDUINO_SAM_DUE)
     
-    //lower address bits 0-7
-    REG_PIOC_CODR = 0xFF << 12;
-    REG_PIOC_SODR = (addr & 0xFF) << 12;
+//     //lower address bits 0-7
+//     REG_PIOC_CODR = 0xFF << 12;
+//     REG_PIOC_SODR = (addr & 0xFF) << 12;
 
     
-    //address bits 8-11
-    REG_PIOD_CODR = 0xF;
-    REG_PIOD_SODR = ((addr >> 8) & 0xF);
+//     //address bits 8-11
+//     REG_PIOD_CODR = 0xF;
+//     REG_PIOD_SODR = ((addr >> 8) & 0xF);
 
 
-    //address bits 12-15
-    REG_PIOB_CODR = 0xF << 17;
-    REG_PIOB_SODR = ((addr >> 12) & 0xF)  << 17;
+//     //address bits 12-15
+//     REG_PIOB_CODR = 0xF << 17;
+//     REG_PIOB_SODR = ((addr >> 12) & 0xF)  << 17;
 
-    //Address bits 16-19: Port C, pins 21-25 (unverified)
-    REG_PIOC_CODR = 0xF << 21;
-    REG_PIOC_SODR = ((addr >> 16) & 0xF) << 21;
-    //tAA = 80ns	
-    #endif
+//     //Address bits 16-19: Port C, pins 21-25 (unverified)
+//     REG_PIOC_CODR = 0xF << 21;
+//     REG_PIOC_SODR = ((addr >> 16) & 0xF) << 21;
+//     //tAA = 80ns	
+//     #endif
 
-}
+// }
 
 
 
@@ -176,7 +189,7 @@ uint8_t SRAM::ReadByte(uint32_t addr) {
         uint8_t readValue = PINL;
     #else        
         //PIOC->PIO_ODR |= (0xFF << 1);
-        uint8_t readValue =  (PIOC->PIO_PDSR >> 1) & 0xFF;	  
+        uint8_t readValue =  (PIOC->PIO_PDSR >> 12) & 0xFF;	  
     #endif
     DeviceOff();
 	return readValue;
@@ -200,7 +213,7 @@ size_t SRAM::ReadBytes(uint32_t addr, uint8_t *buffer, uint32_t length)
         #else        
             
             //PIOC->PIO_ODR |= (0xFF << 1);
-            buffer[curAddr - addr] = (PIOC->PIO_PDSR >> 1) & 0xFF;            
+            buffer[curAddr - addr] = (PIOC->PIO_PDSR >> 12) & 0xFF;            
             //Serial.print("Read byte 0x"); Serial.print(val); Serial.print(" at index "); Serial.print(curAddr - addr); Serial.print(" from address 0x");	  Serial.println(curAddr, HEX);
            
         #endif
@@ -229,12 +242,13 @@ uint16_t SRAM::WriteBytes(uint32_t addr, uint8_t *data, uint32_t length, BusyTyp
         SetDataLines(data[idx]);
         PIOA->PIO_SODR = PIO_PA29;
         NOP;
+        idx++;
+        addr++;   
         PIOA->PIO_CODR = PIO_PA29;
         
         // digitalWrite(PIN_WE, HIGH);
         // digitalWrite(PIN_WE, LOW);
-        idx++;
-        addr++;       
+            
     } ;
     DeviceOff();	
     #if defined(DEBUG_SRAM)
@@ -261,15 +275,14 @@ uint16_t SRAM::FillBytes(uint32_t startAddr, uint8_t data, uint32_t length, Busy
     SetAddress(addr);   
     while(idx < length){
         SetRow(addr);     
-        PIOA->PIO_SODR = PIO_PA29;
+        PIOA->PIO_SODR = PIO_PA29; // D4 WE
         NOP;
         NOP;
-        PIOA->PIO_CODR = PIO_PA29;
-        //digitalWrite(PIN_WE, HIGH);
-        //NOP;
-        //digitalWrite(PIN_WE, LOW);
+        NOP;
+        PIOA->PIO_CODR = PIO_PA29; // D4 WE
         idx++;
-        addr++;       
+        addr++; 
+              
     } ;
     DeviceOff();	
     #if defined(DEBUG_SRAM)
@@ -295,10 +308,11 @@ void SRAM::Erase(uint32_t startAddress, uint32_t length)
     
         while(idx <  minLegth){
             SetAddress(pos + idx);           
-            PIOA->PIO_SODR = PIO_PA29;
+            PIOA->PIO_SODR = PIO_PA29; // D4 WE
             NOP;
-            PIOA->PIO_CODR = PIO_PA29;
-            idx++;            
+            NOP;
+            PIOA->PIO_CODR = PIO_PA29; // D4 WE
+            idx++;                       
         };       
         pos += minLegth;
     }
@@ -311,15 +325,16 @@ void SRAM::Erase(uint32_t startAddress, uint32_t length)
 bool SRAM::WriteByte(uint32_t addr, uint8_t data, uint8_t retryCount, BusyType busyType) {
 	_retries = 0;
 	bool done = false;
+    SetAddress(addr);
     while(Busy(busyType)); //wait for screen to not be drawing
     DeviceWrite();
 	//while (_retries <= retryCount && !done) {		        
-        SetAddress(addr);
+        
 		SetDataLines(data);
 		//toggle WE low for 100ns - 1000ns
-		PIOA->PIO_SODR = PIO_PA29;
+		PIOA->PIO_SODR = PIO_PA29; // D4 WE
         NOP;
-        PIOA->PIO_CODR = PIO_PA29;
+        PIOA->PIO_CODR = PIO_PA29; // D4 WE
 		
 
 

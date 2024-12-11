@@ -28,9 +28,9 @@ public:
     bool inline Busy(BusyType busyType = btAny){
         return busyType == btVolatile ? false :
             busyType == btVertical ? 
-                !(PIOD->PIO_PDSR & PIO_PD5) : 
+                !(PIOC->PIO_PDSR & PIO_PC22) : 
                 busyType == btHorizontal ?
-                    (PIOD->PIO_PDSR & PIO_PD4) :
+                    (PIOC->PIO_PDSR & PIO_PC21) :
                     !(PIOA->PIO_PDSR & PIO_PA13);
         //return (PIOD->PIO_PDSR & PIO_PD4); //horizontal screen clear, 3.9us
         //return !(PIOD->PIO_PDSR & PIO_PD5); //vertical screen clear, 1.6ms
@@ -62,41 +62,41 @@ private:
 
 protected:
 
-	void SetAddress(uint32_t addr);
-    void inline SetColumn(uint32_t column){
-        //set bits 11 - 19
-        //address bit 11
-        REG_PIOD_CODR = 0x1 << 3;
-        REG_PIOD_SODR = (column & 0x1) << 3;
+	void inline SetAddress(uint32_t addr){
+        
+        PIOD->PIO_PER = 0x7FF;         // address bits 0 - 10 //enable
+        PIOD->PIO_OER = 0x7FF;         //set as output
 
+        REG_PIOD_CODR = 0x7FF;          // 11 bits
+        REG_PIOD_SODR = (addr & 0x7FF);
 
-        //address bits 12-15
-        REG_PIOB_CODR = 0xF << 17;
-        REG_PIOB_SODR = ((column >> 1) & 0xF)  << 17;
-
-        //Address bits 16-19: Port C, pins 21-25 (unverified)
-        REG_PIOC_CODR = 0xF << 21;
-        REG_PIOC_SODR = ((column >> 5) & 0xF) << 21;
-
+        REG_PIOC_CODR = 0x1FF << 1;     // 9 bits
+        REG_PIOC_SODR = ((addr >> 11) & 0x1FF) << 1;
     }
+
+    // void inline SetColumn(uint32_t column){
+    //     //set bits 11 - 19
+    //     REG_PIOD_CODR = 0x1 << 10;
+    //     REG_PIOD_SODR = (column & 0x1) << 10;
+
+    //     REG_PIOC_CODR = 0x1FF << 1;
+    //     REG_PIOC_SODR = (column & 0x1FF) << 1;
+
+    // }
     void inline SetRow(uint32_t addr)
     {
-    //lower address bits 0-7
-        REG_PIOC_CODR = 0xFF << 12;
-        REG_PIOC_SODR = (addr & 0xFF) << 12;
+    //lower address bits 0-10
 
-        
-        //address bits 8, 9
-        REG_PIOD_CODR = 0x3;
-        REG_PIOD_SODR = ((addr >> 8) & 0x3);
+        REG_PIOD_CODR = 0x1FF;
+        REG_PIOD_SODR = (addr & 0x1FF);
     }
 	void inline SetDataLines(uint8_t data)
     {
     #ifdef USE_PORT_IO
         PORTL = data;
     #else
-        REG_PIOC_CODR = 0xFF << 1;
-        REG_PIOC_SODR = (data & 0xFF) << 1;
+        REG_PIOC_CODR = 0xFF << 12;
+        REG_PIOC_SODR = (data & 0xFF )<< 12;
     #endif
     }
 

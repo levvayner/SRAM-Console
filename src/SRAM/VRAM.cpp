@@ -432,10 +432,10 @@ void VRAM::drawOval(int centerX, int centerY, int width, int height, byte color)
     {
         int x1 = x0 - (dx - 1);  // try slopes of dx - 1 or more
         for ( ; x1 > 0; x1--){        
-             drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color, btVolatile);
-             drawLine(centerX + x0, centerY + y, centerX + x1, centerY + y, color, btVolatile);
-             drawLine(centerX + x0, centerY - y, centerX + x1, centerY - y, color, btVolatile);
-             drawLine(centerX - x1, centerY + y, centerX - x0, centerY + y, color, btVolatile);
+             drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color);
+             drawLine(centerX + x0, centerY + y, centerX + x1, centerY + y, color);
+             drawLine(centerX + x0, centerY - y, centerX + x1, centerY - y, color);
+             drawLine(centerX - x1, centerY + y, centerX - x0, centerY + y, color);
             if (x1*x1*hh + y*y*ww <= hhww)
                 break;
         }
@@ -483,7 +483,7 @@ void VRAM::fillOval(int centerX, int centerY, int width, int height, byte color)
     // );
     // Serial.println(buf);
     
-    FillBytes((centerY << settings.horizontalBits) + leftEdge, color, diameter, btVolatile);
+    FillBytes((centerY << settings.horizontalBits) + leftEdge, color, diameter);
     // now do both halves at the same time, away from the diameter
     
     for (int y = 1; y <= height; y++)
@@ -502,14 +502,14 @@ void VRAM::fillOval(int centerX, int centerY, int width, int height, byte color)
         
         if(centerY - y > 0){
             drawLine(centerX - x1, centerY - y, centerX + x1, centerY - y, color);
-            FillBytes(((centerY - y) << settings.horizontalBits) + leftEdge, color, diameter, btVolatile);
+            FillBytes(((centerY - y) << settings.horizontalBits) + leftEdge, color, diameter);
             // sprintf(buf,"Filling top half from (%d,%d) to (%d,%d)",
             //     leftEdge, centerY - y, leftEdge + diameter, centerY - y
             // );
             // Serial.println(buf);
         }
         if(centerY + y > 0){
-            FillBytes(((centerY + y) << settings.horizontalBits) + leftEdge, color, diameter, btVolatile);
+            FillBytes(((centerY + y) << settings.horizontalBits) + leftEdge, color, diameter);
             // sprintf(buf,"Filling bottom half from (%d,%d) to (%d,%d)",
             //     leftEdge, centerY + y, leftEdge + diameter, centerY + y
             // );
@@ -650,7 +650,6 @@ void VRAM::_drawTriangleTop1DifferentBottoms(int topX, int topY, int middleX, in
 
 void VRAM::_drawTrinagleScanLines(TrinagleLegDrawObject & leg1, TrinagleLegDrawObject & leg2, int topY, int bottomY, byte color, bool fill)
 {
-    char buf[128];
     int minX    = 0;
     int minX1   = 0;
     int minX2   = 0;
@@ -659,7 +658,8 @@ void VRAM::_drawTrinagleScanLines(TrinagleLegDrawObject & leg1, TrinagleLegDrawO
     int maxX2   = 0;
 
     for(int yScan = max(topY,0); yScan <= min(bottomY, settings.screenHeight); yScan++){
-        memset(buf,0,sizeof(buf));
+        //memset(scanLine,0,sizeof(scanLine));
+        
         leg1.prevX = leg1.rowX;
         leg2.prevX = leg2.rowX;
         leg1.rowX = leg1.isVertical ? leg1.rowX : ((float)(yScan - leg1.yIntercept )) / leg1.slope; 
@@ -680,15 +680,16 @@ void VRAM::_drawTrinagleScanLines(TrinagleLegDrawObject & leg1, TrinagleLegDrawO
             FillBytes((yScan << settings.horizontalBits) + minX, color, maxX - minX);        
         else 
         {
-            if(leg1.slope < 1.0 && leg1.slope > -1.0)
+            if(minX1 == maxX1){
+                drawPixel(leg1.rowX, yScan, color);   
+            } else
                 FillBytes((yScan << settings.horizontalBits) + minX1, color, maxX1 - minX1);
-            else if(leg1.rowX >= 0 && leg1.rowX < settings.screenWidth)
-                drawPixel(leg1.rowX, yScan, color);            
 
-            if(leg2.slope < 1.0 && leg2.slope > -1.0)
-                FillBytes((yScan << settings.horizontalBits) + minX2, color, maxX2 - minX2);
-            else if(leg2.rowX >= 0 && leg2.rowX < settings.screenWidth)
+            if(minX2 == maxX2){
                 drawPixel(leg2.rowX, yScan, color);
+            } else
+                FillBytes((yScan << settings.horizontalBits) + minX2, color, maxX2 - minX2);
+                
         }
     }
 }
