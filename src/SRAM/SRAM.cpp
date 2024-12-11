@@ -4,78 +4,15 @@
 #define NOP __asm__ __volatile__ ("nop\n\t")
 #define isascii(c)  ((c & ~0x7F) == 0)
 extern UI ui;
-// #if defined(ARDUINO_SAM_DUE)
-// #define PORTA POIA
-// #endif
+
 
 SRAM::SRAM()
 {
     
-    /*      Memory addressing is 20 bits wide (A0 - A19) with A0-A15 connected to a bus shared with the timing circuit.
-            Bits 0 to 7 are connected to Port C, pins 12 to 19
-            Bits 8 to 11 are connected to port D pins 1 to 4
-            Bits 12 to 15 are connected to port B pins 17 to 21
-            Bits 16 to 19 are connected to port A pins 14 to 17
-    */
-    //Set up address bits by setting to gpio mode and output mode
-    // PIOC->PIO_PER |= 0xFF << 12;    // address bits 0 - 7
-    // PIOC->PIO_OER |= 0xFF << 12;
-    
-    // PIOD->PIO_PER |= 0xF;           // address bits 8-11
-    // PIOD->PIO_OER |= 0xF;
-    // PIOB->PIO_PER |= 0xF << 17;     // address bits 12-15
-    // PIOB->PIO_OER |= 0xF << 17;
-
-    // PIOC->PIO_PER |= 0xF << 21;     // address bits 16-19
-    // PIOC->PIO_OER |= 0xF << 21;
     // USART2->US_CR = US_CR_TXDIS;//Disables USART2 TX
     // USART2->US_CR = US_CR_RXDIS;//Disables USART2 RX
 
-    PIOD->PIO_PER = 0x7FF;         // address bits 0 - 10 //enable
-    PIOD->PIO_OER = 0x7FF;         //set as output
-    
-    PIOC->PIO_PER = 0x1FF << 1;     // address bits 11-19
-    PIOC->PIO_OER = 0x1FF << 1;
-
-    PIOC->PIO_PER = 0xFF << 12;    //enable data pins
    
-    
-    
-    //enable peripheral clocks. TODO: verify if this is needed
-    // PMC->PMC_PCER0 |= PMC_PCER0_PID11;
-    // PMC->PMC_PCER0 |= PMC_PCER0_PID12;
-    // PMC->PMC_PCER0 |= PMC_PCER0_PID13;
-    // PMC->PMC_PCER0 |= PMC_PCER0_PID14;
-
-
-
-    //enable and set as input, diable pullup D16, SCREEN_VISIBLE (active LOW)
-    PIOA->PIO_PER = PIO_PA13;
-    PIOA->PIO_ODR = PIO_PA13;
-    PIOA->PIO_PUDR = PIO_PA13;
-
-    //pinMode(16,INPUT);
-    //enable and set as input, diable pullup D8  /*D15*/, VERTICAL_VISIBLE (active LOW) C22
-    PIOC->PIO_PER = PIO_PC22;
-    PIOC->PIO_ODR = PIO_PC22;
-    PIOC->PIO_PUDR = PIO_PC22;
-
-    //enable and set as input, diable pullup D9 D14, HORIZONTAL_VISIBLE (active HIGH) C21
-    PIOC->PIO_PER = PIO_PC21;
-    PIOC->PIO_ODR = PIO_PC21;
-    PIOC->PIO_PUDR = PIO_PC21;
-
-    //enable and set as output D4 WE
-    PIOA->PIO_PER = PIO_PA29;
-    PIOA->PIO_OER = PIO_PA29;
-
-    //enable and set as output D2 OE
-    PIOA->PIO_PER = PIO_PB25;
-    PIOA->PIO_OER = PIO_PB25;
-
-    //enable and set as output D3 CE
-    PIOC->PIO_PER = PIO_PC28;
-    PIOC->PIO_OER = PIO_PC28; 
 
     #if defined(SCREEN_OUTPUT)
     pinMode(SCREEN_OUTPUT, INPUT);
@@ -87,6 +24,50 @@ SRAM::~SRAM()
 {
 }
 
+void SRAM::begin()
+{
+     PIOD->PIO_PER = 0x7FF;         // address bits 0 - 10 //enable
+    PIOD->PIO_OER = 0x7FF;         //set as output
+    
+    PIOC->PIO_PER = 0x1FF << 1;     // address bits 11-19
+    PIOC->PIO_OER = 0x1FF << 1;
+
+    PIOC->PIO_PER = 0xFF << 12;    //enable data pins
+   
+    
+    //enable and set as input, diable pullup D16, SCREEN_VISIBLE (active LOW)
+    PIOA->PIO_PER = PIO_PA13;
+    PIOA->PIO_ODR = PIO_PA13;
+    PIOA->PIO_PUDR = PIO_PA13;
+
+    //pinMode(16,INPUT);
+    //enable and set as input, diable pullup D8 , VERTICAL_VISIBLE (active LOW) C22
+    PIOC->PIO_PER = PIO_PC22;
+    PIOC->PIO_ODR = PIO_PC22;
+    PIOC->PIO_PUDR = PIO_PC22;
+
+    //enable and set as input, diable pullup D9 , HORIZONTAL_VISIBLE (active HIGH) C21
+    PIOC->PIO_PER = PIO_PC21;
+    PIOC->PIO_ODR = PIO_PC21;
+    PIOC->PIO_PUDR = PIO_PC21;
+
+    //enable and set as output D4 WE
+    PIOA->PIO_PER = PIO_PA29;
+    PIOA->PIO_OER = PIO_PA29;
+    //PIOA->PIO_CODR = PIO_PA29;
+
+    //enable and set as output D2 OE
+    PIOB->PIO_PER = PIO_PB25;
+    PIOB->PIO_OER = PIO_PB25;
+    //PIOB->PIO_CODR = PIO_PB25;
+
+    //enable and set as output D3 CE
+    PIOC->PIO_PER = PIO_PC28;
+    PIOC->PIO_OER = PIO_PC28; 
+    //PIOC->PIO_CODR = PIO_PC28;
+
+	DeviceOff();
+}
 
 #pragma region SRAM Chip Methods
 
@@ -94,9 +75,7 @@ void SRAM::DeviceOff() {
 
     PIOA->PIO_CODR = PIO_PA29;
     PIOB->PIO_CODR = PIO_PB25;
-    #ifdef PIN_CE
-    PIOC->PIO_CODR = PIO_PC28;
-    #endif
+    PIOC->PIO_CODR = PIO_PC28;    
     
     //set pins as input
     PIOC->PIO_ODR = 0xFF << 12;
@@ -142,36 +121,6 @@ void SRAM::DeviceWrite() {
 
 	ramState = dsWrite; //update state
 }
-//MAX ADDR is 1048575 with 20 address lines
-// void SRAM::SetAddress(uint32_t addr) {
-// 	//each bit of address is going to addr pin 0 - 10. 
-//     #if defined(__AVR_MEGA__)
-//         PORTA = addr & 0xFF;
-//         PORTC = addr >> 8;
-// 	#elif defined(ARDUINO_SAM_DUE)
-    
-//     //lower address bits 0-7
-//     REG_PIOC_CODR = 0xFF << 12;
-//     REG_PIOC_SODR = (addr & 0xFF) << 12;
-
-    
-//     //address bits 8-11
-//     REG_PIOD_CODR = 0xF;
-//     REG_PIOD_SODR = ((addr >> 8) & 0xF);
-
-
-//     //address bits 12-15
-//     REG_PIOB_CODR = 0xF << 17;
-//     REG_PIOB_SODR = ((addr >> 12) & 0xF)  << 17;
-
-//     //Address bits 16-19: Port C, pins 21-25 (unverified)
-//     REG_PIOC_CODR = 0xF << 21;
-//     REG_PIOC_SODR = ((addr >> 16) & 0xF) << 21;
-//     //tAA = 80ns	
-//     #endif
-
-// }
-
 
 
 #pragma endregion

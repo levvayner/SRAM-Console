@@ -34,15 +34,9 @@ void keyReleased() {
 
 void setup() {
     Serial.begin(115200);
+    programmer.begin();
     pinMode(PIN_LED, OUTPUT);
-	pinMode(PIN_OE, OUTPUT);
-    #ifdef PIN_CE
-	pinMode(PIN_CE, OUTPUT);
-    #endif
-	pinMode(PIN_WE, OUTPUT);
-	//start with chip in neither read nor write.
-    //programmer.Erase();
-	programmer.DeviceOff();
+    
     ps2Controller.begin();
 
 	digitalWrite(PIN_LED, LOW);

@@ -25,6 +25,8 @@ public:
 	SRAM();
 	~SRAM();
 
+    void begin();
+
     bool inline Busy(BusyType busyType = btAny){
         return busyType == btVolatile ? false :
             busyType == btVertical ? 
@@ -86,6 +88,7 @@ protected:
     void inline SetRow(uint32_t addr)
     {
     //lower address bits 0-10
+       
 
         REG_PIOD_CODR = 0x1FF;
         REG_PIOD_SODR = (addr & 0x1FF);

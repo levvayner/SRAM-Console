@@ -178,6 +178,7 @@ bool VRAM::drawPixel(int x, int y, Color color, BusyType busyType)
 
 bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color, BusyType busyType)
 {
+    char buf[256];
     // find slope, increment from x1 to x2, changing y by slope
     if(x2 == x1) { //vertical line
         for(int y = y1; (y1 < y2) ?  y < y2 : y > y2; (y1 < y2) ? y++ : y--)
@@ -193,23 +194,33 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color, BusyType busyTyp
     }
     double slope = (double)(y2 - y1) / double(x2 - x1);
 
-    //sprintf(buf,"Drawing line from (%i,%i) to (%i, %i).\nSlope: %lf\n", x1, y1, x2, y2, slope);
+    double step = 1/slope;
+    double xCoord = x1;
+    // sprintf(buf,"Drawing line from (%i,%i) to (%i, %i).\nSlope: %lf\n", x1, y1, x2, y2, slope);
+    // Serial.println(buf);
     if(slope > 1 || slope < -1){
-        double step = 1/slope;
-        double xCoord = x1;
-        //more x for each y, move 1 x at a time
+        
+        
         for(double yCoord = y1; (y1 < y2) ? yCoord < y2 : yCoord > y2;  (y1 < y2) ? yCoord+= 1 : yCoord-= 1){     
             (x1 < x2) ? xCoord+= step : xCoord-= step ;
             drawPixel((int)xCoord, (int)yCoord, color);
         }
     
 
-    } else{
-        
-        //more y for each x, move one y at a time
-        for(double xCoord = x1; (x1 < x2) ? xCoord < x2 : xCoord > x2;  (x1 < x2) ? xCoord+= 1 : xCoord-= 1){
+    } else{        
+        int prevX = x1;
+        for(xCoord = x1; (x1 < x2) ? xCoord < x2 : xCoord > x2;  (x1 < x2) ?  xCoord+= abs(step) : xCoord-= abs(step)){
+            // Serial.print("X coord "); Serial.println(xCoord);
             double yCoord = abs(xCoord - x1) * slope + y1;
-            drawPixel((int)xCoord, (int)yCoord, color);
+            if(yCoord < 0) continue;
+            if(yCoord > settings.screenHeight) break;
+            // sprintf(buf,"Drawing line from %d with length %d with legth of %d on y %d",
+            //     (x1 < x2) ?  xCoord : prevX, step, yCoord
+            // );
+            FillBytes(((int)yCoord << settings.horizontalBits) + ((x1 < x2) ?  xCoord : prevX), color,(xCoord > prevX) ? step : -step );
+            //drawLine((int)xCoord, (int)yCoord, prevX, yCoord, color);
+            prevX = xCoord;
+            
         }
     }
     return true;
@@ -432,13 +443,22 @@ void VRAM::drawOval(int centerX, int centerY, int width, int height, byte color)
     {
         int x1 = x0 - (dx - 1);  // try slopes of dx - 1 or more
         for ( ; x1 > 0; x1--){        
-             drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color);
-             drawLine(centerX + x0, centerY + y, centerX + x1, centerY + y, color);
-             drawLine(centerX + x0, centerY - y, centerX + x1, centerY - y, color);
-             drawLine(centerX - x1, centerY + y, centerX - x0, centerY + y, color);
-            if (x1*x1*hh + y*y*ww <= hhww)
+            if (x1*x1*hh + y*y*ww <= hhww){
+                drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color);
+                drawLine(centerX + x0, centerY + y, centerX + x1, centerY + y, color);
+                drawLine(centerX + x0, centerY - y, centerX + x1, centerY - y, color);
+                drawLine(centerX - x1, centerY + y, centerX - x0, centerY + y, color);
                 break;
+            }
+            else{
+                drawPixel(centerX - x1, centerY - y, color);
+                drawPixel(centerX + x0, centerY + y, color);
+                drawPixel(centerX + x0, centerY - y, color);
+                drawPixel(centerX - x1, centerY + y, color);
+            }
         }
+        
+        
         //if(centerX -x1 > 0 && centerY -y > 0)
             //     drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color);
         
@@ -501,7 +521,7 @@ void VRAM::fillOval(int centerX, int centerY, int width, int height, byte color)
         }
         
         if(centerY - y > 0){
-            drawLine(centerX - x1, centerY - y, centerX + x1, centerY - y, color);
+            //drawLine(centerX - x1, centerY - y, centerX + x1, centerY - y, color);
             FillBytes(((centerY - y) << settings.horizontalBits) + leftEdge, color, diameter);
             // sprintf(buf,"Filling top half from (%d,%d) to (%d,%d)",
             //     leftEdge, centerY - y, leftEdge + diameter, centerY - y
