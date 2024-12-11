@@ -357,6 +357,17 @@ inline void UI::_processInput(TPort port)
         graphics.clear();
         char buf[128];
 
+        graphics.clear();
+
+        unsigned long dlStartTime = millis();
+        Serial.print("Testing drawing lines .. ");
+        dlStartTime = millis();
+        for(int idx = 0; idx < numOfObjects; idx++){
+            graphics.drawLine(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(1,140),random(0,70),random(0,255));
+        }
+        dlStartTime = millis() - dlStartTime;
+        Serial.print(". "); Serial.print(dlStartTime); Serial.println(" ms");
+
         unsigned long dtStartTime = millis();
         Serial.print("Testing drawing triangles .. ");
         dtStartTime = millis();
@@ -463,6 +474,8 @@ inline void UI::_processInput(TPort port)
         graphics.clear();
 
         console.SetPosition(0,0);
+        sprintf(buf,"Drawing %i lines:      % 5lu ms", numOfObjects, dlStartTime);
+        console.println(buf);
         sprintf(buf,"Drawing %i triangles:  % 5lu ms", numOfObjects, dtStartTime);
         console.println(buf);
         sprintf(buf,"Drawing %i rectangles: % 5lu ms", numOfObjects, drStartTime);
@@ -480,7 +493,7 @@ inline void UI::_processInput(TPort port)
         sprintf(buf,"Filling %i ovals:      % 5lu ms", numOfObjects, foStartTime);
         console.println(buf);
 
-        unsigned long totalTime = dtStartTime + drStartTime + dcStartTime + doStartTime + ftStartTime + frStartTime + fcStartTime + foStartTime;
+        unsigned long totalTime = dlStartTime + dtStartTime + drStartTime + dcStartTime + doStartTime + ftStartTime + frStartTime + fcStartTime + foStartTime;
         sprintf(buf, "--------------------------------");
         console.println(buf);
         sprintf(buf,"Total rendering time:   % 5lu ms", totalTime);
