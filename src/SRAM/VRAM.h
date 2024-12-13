@@ -76,18 +76,29 @@ struct VRAMSettings{
     uint16_t charHeight = 9;
     uint16_t screenBufferHeight = 3000;
     uint16_t horizontalBits = 10;
+    VRAMSettings(uint16_t width, uint16_t height, uint8_t charWidth = 6, uint8_t charHeight = 9, uint8_t horizontalBits = 10){
+        screenWidth = width;
+        screenHeight = height;
+        this->charWidth = charWidth;
+        this->charHeight = charHeight;
+        this->horizontalBits = horizontalBits;
+    }
 };
+
+
+
 
 
 class VRAM : public SRAM{
     
     public:
-        VRAMSettings settings;
+        VRAMSettings settings = VRAMSettings(432, 240);
 
         VRAM();
         ~VRAM();
 
         void begin();
+        void end();
 
         
 
@@ -104,6 +115,8 @@ class VRAM : public SRAM{
 
         virtual bool drawPixel(int x, int y, byte color = 0xFF, BusyType busyType = btAny);
         virtual bool drawPixel(int x, int y, Color color, BusyType busyType = btAny);
+
+        virtual uint8_t readPixel(int x, int y, BusyType busyType = btAny);
 
         virtual bool drawLine(int x1, int y1, int x2, int y2, byte color = 0xFF, BusyType busyType = btAny);
         virtual bool drawLine (Point start, Point end, byte color, BusyType busyType = btAny);
@@ -123,19 +136,19 @@ class VRAM : public SRAM{
             return fillTriangle(x1, y1, x2, y2, x3, y3, color.ToByte());
         }
 
-        virtual bool drawRect(int x1, int y1, int width, int height, byte color = 0xFF);
-        virtual bool drawRect (Point topLeft, Point bottomRight, byte color = 0xFF);
-        virtual bool drawRect(int x1, int y1, int width, int height, Color color = Color::WHITE);
-        virtual bool drawRect (Point topLeft, Point bottomRight, Color color = Color::WHITE);
+        virtual bool drawRectangle(int x1, int y1, int width, int height, byte color = 0xFF, BusyType busyType = btAny);
+        virtual bool drawRectangle(Point topLeft, Point bottomRight, byte color = 0xFF, BusyType busyType = btAny);
+        virtual bool drawRectangle(int x1, int y1, int width, int height, Color color = Color::WHITE, BusyType busyType = btAny);
+        virtual bool drawRectangle(Point topLeft, Point bottomRight, Color color = Color::WHITE, BusyType busyType = btAny);
 
-        virtual bool fillRect(int x1, int y1, int width, int height, byte color = 0xFF);
-        virtual bool fillRect(int x1, int y1, int width, int height,  Color color =Color::WHITE);
-        virtual bool fillRect (Point topLeft, Point bottomRight, byte color = 0xFF);
-        virtual bool fillRect (Point topLeft, Point bottomRight, Color color =Color::WHITE);
+        virtual bool fillRectangle(int x1, int y1, int width, int height, byte color = 0xFF, BusyType busyType = btAny);
+        virtual bool fillRectangle(int x1, int y1, int width, int height,  Color color =Color::WHITE, BusyType busyType = btAny);
+        virtual bool fillRectangle(Point topLeft, Point bottomRight, byte color = 0xFF, BusyType busyType = btAny);
+        virtual bool fillRectangle(Point topLeft, Point bottomRight, Color color =Color::WHITE, BusyType busyType = btAny);
 
-        virtual bool drawCircle(int centerX, int centerY, int radius, byte color = 0xFF);
-        virtual inline bool drawCircle(int centerX, int centerY, int radius, Color color = Color::WHITE){
-            return drawCircle(centerX, centerY, radius, color.ToByte());
+        virtual bool drawCircle(int centerX, int centerY, int radius, byte color = 0xFF, BusyType busyType = btAny);
+        virtual inline bool drawCircle(int centerX, int centerY, int radius, Color color = Color::WHITE, BusyType busyType = btAny){
+            return drawCircle(centerX, centerY, radius, color.ToByte(), busyType);
         }
 
         virtual bool drawArc(int x, int y, int startAngle, int endAngle, int radius, byte color = 0xFF);
@@ -157,14 +170,20 @@ class VRAM : public SRAM{
         
 
         virtual inline bool clear(int x1 = 0, int y1 = 0, int width = 0, int height = 0){
-            if(width == 0) width = settings.screenWidth - x1 + 1;
-            if(height == 0) height = settings.screenHeight - y1 + 1;
-            return fillRect(x1, y1, width, height, Color::BLACK);
+            if(width == 0) width = settings.screenWidth - x1 + 2;
+            if(height == 0) height = settings.screenHeight - y1 + 2;
+            return fillRectangle(x1, y1, width, height, Color::BLACK);
         }
 
         /// @brief renders frame buffer to screen (writes to ram)
         virtual void render();
 
+
+    static inline  uint8_t mulitplyColors(uint8_t a, uint8_t b) {
+        uint8_t s = a + b;
+        uint8_t m = (s - ((a ^ b) & 0x01010101)) & 0x01010101;
+	    return m * 0xFF >> 8 | (s - m);
+    }
 
     private:
     bool _drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte color = 0xFF, bool fill = false);
@@ -178,3 +197,5 @@ class VRAM : public SRAM{
 
 };
 #endif
+
+extern VRAM graphics;

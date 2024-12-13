@@ -8,5 +8,6 @@
 
 #define PS2_DATA 18
 #define PS2_CLK  19
+#define PIN_RESOLUTION 5 //SET Resolution
 
 #endif

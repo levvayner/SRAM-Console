@@ -1,15 +1,47 @@
 #include "VRAM.h"
 #include "math.h"
-VRAM::VRAM()
-{
-    
 
+VRAMSettings resolution1(432, 240);
+VRAMSettings resolution2(320, 300);
+char buf[32];
+void changeResolution(){
+    memset(buf, 0, sizeof(buf));
+    if(digitalRead(PIN_RESOLUTION) == HIGH){
+        graphics.settings = resolution2;
+        if(Serial.availableForWrite()){
+            sprintf(buf, "Setting resolution to %u x %u", resolution2.screenWidth, resolution2.screenHeight);
+            Serial.println(buf);
+        }
+    }
+    else {
+        graphics.settings = resolution1;
+        if(Serial.availableForWrite()){
+            sprintf(buf, "Setting resolution to %u x %u", resolution1.screenWidth, resolution1.screenHeight);
+            Serial.println(buf);
+        }
+    }
+}
+
+VRAM::VRAM()
+{   
+    
+    
 }
 VRAM::~VRAM()
 {
+    end();
     free(_frameBuffer);
 }
 void VRAM::begin(){
+    settings = resolution1;
+    SRAM::begin(); 
+    PIOC->PIO_PER = PIO_PC25;
+    PIOC->PIO_ODR = PIO_PC25;
+    PIOC->PIO_PUDR = PIO_PC25;
+
+    attachInterrupt(digitalPinToInterrupt(PIN_RESOLUTION), changeResolution, CHANGE);
+
+    //changeResolution();
     // _frameBuffer = (uint8_t *)malloc((settings.screenWidth- 20) * (settings.screenHeight - 20));
     // if(_frameBuffer == NULL){
     //     Serial.print("Failed to init frame buffer!");
@@ -18,6 +50,10 @@ void VRAM::begin(){
     //     memset(_frameBuffer, ERASE_BYTE, (settings.screenWidth - 20) * (settings.screenHeight - 20));
     //     Serial.print("Initialized frame buffer with "); Serial.print(settings.screenWidth * settings.screenHeight); Serial.println(" bytes");
     // }
+}
+void VRAM::end()
+{
+    detachInterrupt(PIN_RESOLUTION);
 }
 void VRAM::drawText(int x, int y, const char *text, byte color, byte backgroundColor, bool clearBackground, bool useFrameBuffer, BusyType busyType)
 {
@@ -30,7 +66,7 @@ void VRAM::drawText(int x, int y, const char *text, byte color, byte backgroundC
         memset(letterBuffer, backgroundColor, bufferSize);
         
         //for each column of character
-        for(uint8_t charX = 0;charX < settings.charWidth;charX ++){
+        for(uint16_t charX = 0;charX < settings.charWidth;charX ++){
             byte column = charX < settings.charWidth - 1 ? CHARS[(uint8_t)(text[idx] - 32)][charX] : 0;
 
 
@@ -176,9 +212,24 @@ bool VRAM::drawPixel(int x, int y, Color color, BusyType busyType)
     return drawPixel(x,y, color.ToByte());
 }
 
+uint8_t VRAM::readPixel(int x, int y, BusyType busyType)
+{
+    return ReadByte((y << settings.horizontalBits) + x);
+}
+
 bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color, BusyType busyType)
 {
     char buf[256];
+    int leftX = x1;
+    int leftY = y1;
+    int rightX = x2;
+    int rightY = y2;
+    if(x1 > x2){
+        leftX = x2;
+        leftY = y2;
+        rightX = x1;
+        rightY = y2;
+    }
     // find slope, increment from x1 to x2, changing y by slope
     if(x2 == x1) { //vertical line
         for(int y = y1; (y1 < y2) ?  y < y2 : y > y2; (y1 < y2) ? y++ : y--)
@@ -196,8 +247,8 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color, BusyType busyTyp
 
     double step = 1/slope;
     double xCoord = x1;
-    // sprintf(buf,"Drawing line from (%i,%i) to (%i, %i).\nSlope: %lf\n", x1, y1, x2, y2, slope);
-    // Serial.println(buf);
+    //  sprintf(buf,"Drawing line from (%i,%i) to (%i, %i).\nSlope: %lf\n", x1, y1, x2, y2, slope);
+    //  Serial.println(buf);
     if(slope > 1 || slope < -1){
         
         
@@ -208,18 +259,17 @@ bool VRAM::drawLine(int x1, int y1, int x2, int y2, byte color, BusyType busyTyp
     
 
     } else{        
-        int prevX = x1;
-        for(xCoord = x1; (x1 < x2) ? xCoord < x2 : xCoord > x2;  (x1 < x2) ?  xCoord+= abs(step) : xCoord-= abs(step)){
+        for(xCoord = leftX;  xCoord < rightX;  xCoord+= step){
             // Serial.print("X coord "); Serial.println(xCoord);
-            double yCoord = abs(xCoord - x1) * slope + y1;
+            double yCoord = (xCoord - x1) * slope + y1;
             if(yCoord < 0) continue;
             if(yCoord > settings.screenHeight) break;
             // sprintf(buf,"Drawing line from %d with length %d with legth of %d on y %d",
             //     (x1 < x2) ?  xCoord : prevX, step, yCoord
             // );
-            FillBytes(((int)yCoord << settings.horizontalBits) + ((x1 < x2) ?  xCoord : prevX), color,(xCoord > prevX) ? step : -step );
+            FillBytes(((int)yCoord << settings.horizontalBits) + xCoord, color,step );
             //drawLine((int)xCoord, (int)yCoord, prevX, yCoord, color);
-            prevX = xCoord;
+           
             
         }
     }
@@ -249,7 +299,7 @@ bool VRAM::drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, byte col
 }
 
 
-bool VRAM::drawRect(int x1, int y1, int width, int height, byte color)
+bool VRAM::drawRectangle(int x1, int y1, int width, int height, byte color, BusyType busyType)
 {
     //TODO: clip to screen
     //draw buffered top and bottom
@@ -257,39 +307,39 @@ bool VRAM::drawRect(int x1, int y1, int width, int height, byte color)
     if(y1 > settings.screenHeight) return false;
     int clipWidth = width;
     int clipHeight = height;
-    if(settings.screenWidth - (width + x1) < width) clipWidth = settings.screenWidth - x1;
-    if(settings.screenHeight - (y1 + height) < height) clipHeight = settings.screenHeight - y1; 
+    if(settings.screenWidth < width + x1) clipWidth = settings.screenWidth - x1;
+    if(settings.screenHeight <y1 + height) clipHeight = settings.screenHeight - y1; 
 
    
-    FillBytes((y1 << settings.horizontalBits) + x1, color, clipWidth);
+    FillBytes((y1 << settings.horizontalBits) + x1, color, clipWidth, busyType);
     
-    FillBytes(((y1 + clipHeight) << settings.horizontalBits) + x1, color, clipWidth);
+    FillBytes(((y1 + clipHeight) << settings.horizontalBits) + x1, color, clipWidth, busyType);
 
     //draw pixeled left and right
-    for(byte y=y1; y < y1 + clipHeight; y++){
-        WriteByte((y << settings.horizontalBits) + x1, color);        
-        WriteByte((y << settings.horizontalBits) + x1 + clipWidth, color);
+    for(uint16_t y=y1; y < y1 + clipHeight; y++){
+        drawPixel(x1,y, color);
+        drawPixel(x1 + clipWidth, y, color);
     }
 
     return true;
 }
 
-bool VRAM::drawRect(Point topLeft, Point bottomRight, byte color)
+bool VRAM::drawRectangle(Point topLeft, Point bottomRight, byte color, BusyType busyType)
 {
-    return drawRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color);
+    return drawRectangle(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color, busyType);
 }
 
-bool VRAM::drawRect(int x1, int y1, int width, int height, Color color)
+bool VRAM::drawRectangle(int x1, int y1, int width, int height, Color color, BusyType busyType)
 {
-    return drawRect(x1, y1, width, height, color.ToByte());
+    return drawRectangle(x1, y1, width, height, color.ToByte(), busyType);
 }
 
-bool VRAM::drawRect(Point topLeft, Point bottomRight, Color color)
+bool VRAM::drawRectangle(Point topLeft, Point bottomRight, Color color, BusyType busyType)
 {
-    return drawRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color.ToByte());
+    return drawRectangle(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color.ToByte(), busyType);
 }
 
-bool VRAM::fillRect(int x1, int y1, int width, int height, byte color)
+bool VRAM::fillRectangle(int x1, int y1, int width, int height, byte color, BusyType busyType)
 {
     if(x1 < 0) x1 = 0;
     if(y1 < 0) y1 = 0;
@@ -297,27 +347,27 @@ bool VRAM::fillRect(int x1, int y1, int width, int height, byte color)
     if(height > settings.screenHeight - y1) height = settings.screenHeight - y1;
     
     for(int y=y1; y < y1 + height; y++){
-        FillBytes((y << settings.horizontalBits) + x1, color, width);
+        FillBytes((y << settings.horizontalBits) + x1, color, width, busyType);
     }  
     return true;  
 }
 
-bool VRAM::fillRect(int x1, int y1, int width, int height, Color color)
+bool VRAM::fillRectangle(int x1, int y1, int width, int height, Color color, BusyType busyType)
 {
-    return fillRect(x1,y1,width, height, color.ToByte());
+    return fillRectangle(x1,y1,width, height, color.ToByte(), busyType);
 }
 
-bool VRAM::fillRect(Point topLeft, Point bottomRight, byte color)
+bool VRAM::fillRectangle(Point topLeft, Point bottomRight, byte color, BusyType busyType)
 {
-    return fillRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color);
+    return fillRectangle(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color, busyType);
 }
 
-bool VRAM::fillRect(Point topLeft, Point bottomRight, Color color)
+bool VRAM::fillRectangle(Point topLeft, Point bottomRight, Color color, BusyType busyType)
 {
-    return fillRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color.ToByte());
+    return fillRectangle(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y, color.ToByte(), busyType);
 }
 
-bool VRAM::drawCircle(int centerX, int centerY, int radius, byte color)
+bool VRAM::drawCircle(int centerX, int centerY, int radius, byte color, BusyType busyType)
 {
     int x = 0, y = -radius, p = -radius;
     while(x < -y){
@@ -327,15 +377,15 @@ bool VRAM::drawCircle(int centerX, int centerY, int radius, byte color)
         } else{
             p += 2*x + 1;
         }
-        
-        drawPixel(centerX + x, centerY + y, color);
-        drawPixel(centerX - x, centerY + y, color);
-        drawPixel(centerX + x, centerY - y, color);
-        drawPixel(centerX - x, centerY - y, color);
-        drawPixel(centerX + y, centerY + x, color);
-        drawPixel(centerX + y, centerY - x, color);
-        drawPixel(centerX - y, centerY + x, color);
-        drawPixel(centerX - y, centerY - x, color);
+        while(Busy());
+        drawPixel(centerX + x, centerY + y, color, busyType);
+        drawPixel(centerX - x, centerY + y, color, busyType);
+        drawPixel(centerX + x, centerY - y, color, busyType);
+        drawPixel(centerX - x, centerY - y, color, busyType);
+        drawPixel(centerX + y, centerY + x, color, busyType);
+        drawPixel(centerX + y, centerY - x, color, busyType);
+        drawPixel(centerX - y, centerY + x, color, busyType);
+        drawPixel(centerX - y, centerY - x, color, busyType);
 
         x += 1;
     }
@@ -419,7 +469,7 @@ void VRAM::render()
 {
     unsigned long startTime = millis();
     Serial.print("Rendering frame .. ");
-    for(uint8_t line = 0; line < settings.screenHeight; line++){
+    for(uint16_t line = 0; line < settings.screenHeight; line++){
         WriteBytes(line << settings.horizontalBits, _frameBuffer + (line * settings.screenWidth), settings.screenWidth);
     }
     Serial.print(" completed in "); Serial.print(millis() - startTime); Serial.println(" ms.");
@@ -444,17 +494,19 @@ void VRAM::drawOval(int centerX, int centerY, int width, int height, byte color)
         int x1 = x0 - (dx - 1);  // try slopes of dx - 1 or more
         for ( ; x1 > 0; x1--){        
             if (x1*x1*hh + y*y*ww <= hhww){
-                drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color);
-                drawLine(centerX + x0, centerY + y, centerX + x1, centerY + y, color);
-                drawLine(centerX + x0, centerY - y, centerX + x1, centerY - y, color);
-                drawLine(centerX - x1, centerY + y, centerX - x0, centerY + y, color);
+                while(Busy());
+                drawLine(centerX - x1, centerY - y, centerX - x0, centerY - y, color, btVolatile);
+                drawLine(centerX + x0, centerY + y, centerX + x1, centerY + y, color, btVolatile);
+                drawLine(centerX + x0, centerY - y, centerX + x1, centerY - y, color, btVolatile);
+                drawLine(centerX - x1, centerY + y, centerX - x0, centerY + y, color, btVolatile);
                 break;
             }
             else{
-                drawPixel(centerX - x1, centerY - y, color);
-                drawPixel(centerX + x0, centerY + y, color);
-                drawPixel(centerX + x0, centerY - y, color);
-                drawPixel(centerX - x1, centerY + y, color);
+                while(Busy());
+                drawPixel(centerX - x1, centerY - y, color, btVolatile);
+                drawPixel(centerX + x0, centerY + y, color, btVolatile);
+                drawPixel(centerX + x0, centerY - y, color, btVolatile);
+                drawPixel(centerX - x1, centerY + y, color, btVolatile);
             }
         }
         
@@ -519,17 +571,17 @@ void VRAM::fillOval(int centerX, int centerY, int width, int height, byte color)
             leftEdge = 0;
             diameter -= (centerX - x1) * -1;
         }
-        
+        while(Busy());
         if(centerY - y > 0){
             //drawLine(centerX - x1, centerY - y, centerX + x1, centerY - y, color);
-            FillBytes(((centerY - y) << settings.horizontalBits) + leftEdge, color, diameter);
+            FillBytes(((centerY - y) << settings.horizontalBits) + leftEdge, color, diameter, btVolatile);
             // sprintf(buf,"Filling top half from (%d,%d) to (%d,%d)",
             //     leftEdge, centerY - y, leftEdge + diameter, centerY - y
             // );
             // Serial.println(buf);
         }
         if(centerY + y > 0){
-            FillBytes(((centerY + y) << settings.horizontalBits) + leftEdge, color, diameter);
+            FillBytes(((centerY + y) << settings.horizontalBits) + leftEdge, color, diameter, btVolatile);
             // sprintf(buf,"Filling bottom half from (%d,%d) to (%d,%d)",
             //     leftEdge, centerY + y, leftEdge + diameter, centerY + y
             // );

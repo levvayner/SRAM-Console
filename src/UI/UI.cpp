@@ -263,6 +263,42 @@ inline void UI::_processInput(TPort port)
         Serial.print(F("Draw vertical lines : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
 		//needPrintMenu = true;
 	}
+    else if (resp[0] == 'q' || resp[0] == 'Q') {
+        //screenSaver
+        ScreenSaver saver;
+        char c = '\0';
+        saver.start();
+        while(true){
+            saver.step();
+            if(Serial.available()){
+                c = Serial.read();
+                if(c == 'q' || c == 'Q')
+                graphics.clear();
+                needPrintMenu = true;
+                return;
+            }
+            // else
+            // delay(250);
+        }
+    }
+    else if (resp[0] == 'm' || resp[0] == 'M') {
+        //screenSaver
+        ScreenSaverMandelbrot saver;
+        char c = '\0';
+        saver.start();
+        while(true){
+            saver.step();
+            if(Serial.available()){
+                c = Serial.read();
+                if(c == 'q' || c == 'Q')
+                graphics.clear();
+                needPrintMenu = true;
+                return;
+            }
+            // else
+            // delay(250);
+        }
+    }
     else if (resp[0] == 'd' || resp[0] == 'D') {
         //row of colors in array, for each line, start farther down the list by one. wrap back to beggining of the list when done
         byte colors[256];
@@ -301,7 +337,7 @@ inline void UI::_processInput(TPort port)
                 graphics.drawTextToBuffer(label, block, blockWidth, color ^ 0xFF);
                 graphics.drawBuffer(x, y, blockWidth, blockHeight, block);
 
-                //graphics.fillRect(x,y, blockWidth, blockHeight,color);                
+                //graphics.fillRectangle(x,y, blockWidth, blockHeight,color);                
                 //graphics.drawText(x + 2, y + 2, label,color ^ 0xFF, color, false);
                 color--;
             }               
@@ -320,37 +356,12 @@ inline void UI::_processInput(TPort port)
            
         
     }
-    else if (resp[0] == 'c' || resp[0] == 'C') { //graphics
-        graphics.drawCircle(90, 160, 30, Color::BRICK);
-        graphics.drawCircle(190, 60, 90,Color::BLUE);
-
-        graphics.drawCircle(40, 20, 30, Color::BLUE);
-
-        graphics.fillCircle(210, 150, 50, Color::BLUE);
-        graphics.drawCircle(30, 150, 150, Color::BLUE);
-        graphics.fillCircle(90, 130, 50,  Color::GREEN);
-    }
-    else if (resp[0] == 'o' || resp[0] == 'O') { //graphics
-        graphics.drawOval(90, 160, 30, 50, Color::BRICK);
-        graphics.drawOval(190, 120, 30, 100, Color::BLUE);
-
-        graphics.fillOval(40, 20, 30, 20, Color::BLUE);
-
-        graphics.fillOval(210, 150, 50, 25, Color::BLUE);
-        graphics.fillOval(30, 150, 150, 55, Color::BLUE);
-        graphics.fillOval(90, 130, 150, 55, Color::GREEN);
+    else if (resp[0] == 'c' || resp[0] == 'C') { //console
+        console.run();
+        graphics.clear();
+        needPrintMenu = true;
     }
     
-    else if (resp[0] == 't' || resp[0] == 'T') { //graphics
-
-
-        graphics.drawTriangle(5, 20, 230, 20, 130, 175, Color::BLUE);
-        graphics.drawTriangle(230, 60, 140, 70, 190, 70, Color::GREEN);
-        graphics.drawTriangle(80,120, 110, 155, 240, 190, Color::LIGHT_BLUE);
-        graphics.drawTriangle(5,120,15,120,190,135, Color::GOLD);
-        graphics.drawTriangle(128, 211, 390, 41, 121, 98, Color::GRAY);
-        graphics.drawTriangle(120, 211, 120, 41, 190, 98, Color::GRAY);
-    }
     
     else if (resp[0] == 'g' || resp[0] == 'G') { //graphics
         int numOfObjects = 100;
@@ -391,7 +402,7 @@ inline void UI::_processInput(TPort port)
         Serial.print("Testing drawing rectangles .. ");
         drStartTime = millis();
         for(int idx = 0; idx < numOfObjects; idx++){
-            graphics.drawRect(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(1,140),random(0,70),random(0,255));
+            graphics.drawRectangle(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(1,140),random(0,70),random(0,255));
         }
         drStartTime = millis() - drStartTime;
         Serial.print(". "); Serial.print(drStartTime); Serial.println(" ms");
@@ -443,7 +454,7 @@ inline void UI::_processInput(TPort port)
         Serial.print("Testing filling rectangles .. ");
         frStartTime = millis();
         for(int idx = 0; idx < numOfObjects; idx++){
-            graphics.fillRect(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10),  random(1,140),random(5,70),random(0,255));
+            graphics.fillRectangle(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10),  random(1,140),random(5,70),random(0,255));
         }
         frStartTime = millis() - frStartTime;
         Serial.print(". "); Serial.print(frStartTime); Serial.println(" ms");
@@ -472,7 +483,7 @@ inline void UI::_processInput(TPort port)
         Serial.print(". "); Serial.print(foStartTime); Serial.println(" ms");
 
         graphics.clear();
-
+        console.SetCommandMode(false);
         console.SetPosition(0,0);
         sprintf(buf,"Drawing %i lines:      % 5lu ms", numOfObjects, dlStartTime);
         console.println(buf);
@@ -511,6 +522,7 @@ inline void UI::_processInput(TPort port)
 
         
         console.println(buf);
+        console.SetCommandMode(true);
 
         
     }

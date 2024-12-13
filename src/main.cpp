@@ -5,7 +5,8 @@
 #include "PS2KeyAdvanced.h"
 #include "UI/UI.h"
 #include "IO/ps2KeyboardController.h"
-
+#include <SPI.h>
+#include "SD.h"
 
 
 SRAM programmer = SRAM();
@@ -18,6 +19,8 @@ KeyboardController keyboardUsb(usb);
 PS2KeyAdvanced keyboardPs2;
 ps2KeyboardController ps2Controller;
 UI ui = UI();
+
+
 
 // This function intercepts key press
 void keyPressed() {
@@ -34,7 +37,7 @@ void keyReleased() {
 
 void setup() {
     Serial.begin(115200);
-    programmer.begin();
+    graphics.begin();
     pinMode(PIN_LED, OUTPUT);
     
     ps2Controller.begin();
@@ -44,6 +47,9 @@ void setup() {
 	Serial.println("Starting SRAM tool");
     graphics.begin();
     editor.clear();    
+    if(!SD.begin(10)){        
+        Serial.println("Failed to start SD");
+    }
 
 }
 

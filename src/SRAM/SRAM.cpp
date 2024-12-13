@@ -33,6 +33,12 @@ void SRAM::begin()
     PIOC->PIO_OER = 0x1FF << 1;
 
     PIOC->PIO_PER = 0xFF << 12;    //enable data pins
+
+    //enable peripheral clocks. TODO: verify if this is needed
+    //PMC->PMC_PCER0 |= PMC_PCER0_PID11;
+    //PMC->PMC_PCER0 |= PMC_PCER0_PID12;
+    PMC->PMC_PCER0 |= PMC_PCER0_PID13; //enable port C clock for D5 interrupt
+    //PMC->PMC_PCER0 |= PMC_PCER0_PID14;
    
     
     //enable and set as input, diable pullup D16, SCREEN_VISIBLE (active LOW)
@@ -164,6 +170,33 @@ size_t SRAM::ReadBytes(uint32_t addr, uint8_t *buffer, uint32_t length)
             //PIOC->PIO_ODR |= (0xFF << 1);
             buffer[curAddr - addr] = (PIOC->PIO_PDSR >> 12) & 0xFF;            
             //Serial.print("Read byte 0x"); Serial.print(val); Serial.print(" at index "); Serial.print(curAddr - addr); Serial.print(" from address 0x");	  Serial.println(curAddr, HEX);
+           
+        #endif
+        curAddr++;
+    }
+    DeviceOff();
+	return curAddr - addr;
+}
+
+size_t SRAM::ReadString(uint32_t addr, uint8_t *buffer, uint32_t length)
+{
+    DeviceOutput();
+    uint32_t endAddr = addr + length;
+    uint32_t curAddr = addr;
+    
+    PIOB->PIO_SODR = PIO_PB25; // OE
+    //tOE = 35ns, @84Mhz 1 tick is 1.2e-8s or 12ns. 3 clocks will pass at least
+    while(curAddr < endAddr){
+        SetAddress(curAddr);
+        //NOP; //tAA ~70 ns
+        
+        #ifdef USE_PORT_IO
+            uint8_t readValue = PINL;
+        #else        
+            
+            buffer[curAddr - addr] = (PIOC->PIO_PDSR >> 12) & 0xFF; 
+            if(buffer[curAddr - addr] == '\0') 
+                break;                       
            
         #endif
         curAddr++;

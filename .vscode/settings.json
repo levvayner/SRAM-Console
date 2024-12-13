@@ -3,6 +3,11 @@
     "files.associations": {
         "*.erd": "json",
         "*.vuerd": "json",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "string_view": "cpp",
+        "string": "cpp",
+        "*.tcc": "cpp",
+        "fstream": "cpp",
+        "typeinfo": "cpp"
     }
 }

@@ -1,6 +1,8 @@
 #ifndef _CONSOLE_H
 #define _CONSOLE_H
+#include "SD.h"
 #include "Arduino.h"
+
 #include "Color.h"
 #include "Chars.h"
 #include "SRAM/SRAM.h"
@@ -9,6 +11,11 @@
 #include "Programming/ProgramRom.h"
 #include "KeyboardController.h"
 #include "IO/ps2KeyboardController.h"
+#include "Code/Execution.h"
+#include "CommandHistory.h"
+#include "Bitmap.h"
+#include "DueFlashStorage.h"
+
 
 /*
 Console has two primary responsibilities
@@ -20,7 +27,14 @@ Console has two primary responsibilities
 
 */
 
-
+enum DrawShape{
+    shapeLine = 0,
+    shapeTriangle = 1,
+    shapeRectangle = 2,
+    shapeOval = 3,
+    shapeCircle = 4,
+    shapeUnknown = -1,
+};
 
 #define STATUS_BAR_HEIGHT 10
 
@@ -57,7 +71,7 @@ class Console : Print{
     size_t print(int, int = DEC);
     size_t print(unsigned int, int = DEC);
     size_t print(long, int = DEC);
-    size_t print(unsigned long, int = DEC);
+    size_t print(unsigned long num, int base = DEC);
     size_t print(double, int = 2);
     size_t print(const Printable&);
 
@@ -96,9 +110,14 @@ class Console : Print{
     virtual bool MoveCursorRight();
     virtual bool MoveCursorLeft();
 
+    virtual inline void SetCommandMode(bool commandModeEnabled){
+        _commandMode = commandModeEnabled;
+    }
+
     virtual inline Point GetPosition(){
         return Point(_cursorX, _cursorY);
     }
+    int RunProgram(const char* programName);
 
     protected: 
     
@@ -127,6 +146,13 @@ class Console : Print{
     inline void SetWindowHeight(int height){ _windowHeight = height;}
     void DrawCursor();
     void EraseCursor();
+
+    int getCurrentLineNumber(){
+        return _scrollOffset + _cursorY / graphics.settings.charHeight;
+    }
+    
+
+    int ProcessCommand(const char* command);
 
     template< typename T>
     ConsoleKeyAction checkPort(T &port)
@@ -235,11 +261,12 @@ class Console : Print{
                     //Serial.print("Backspace char 1..");
                     nextChar = port.read();
                     if(nextChar == 0x8){ //backspace
-                        //Serial.print("Backspace char 2..");
-                        EraseCursor();
-                        //_printChar(0, _cursorX, _cursorY); // get rid of cursor
-                        ReverseCursor();
-                        return ConsoleKeyAction::Cursor;
+                        if(!this->IsConsoleRunning() || !_echoPrompt || _cursorX < _promptLength * graphics.settings.charWidth){
+                            EraseCursor();
+                            //_printChar(0, _cursorX, _cursorY); // get rid of cursor
+                            ReverseCursor();
+                            return ConsoleKeyAction::Cursor;
+                        }
                         //_printChar(0, _cursorX, _cursorY);
                     }
                     //Serial.println();
@@ -251,7 +278,7 @@ class Console : Print{
                 EraseCursor();
                 //_printChar(0, _cursorX, _cursorY); // get rid of cursor
                 ReverseCursor();
-                graphics.fillRect(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, Color::BLACK);
+                graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, Color::BLACK);
                 //_printChar(0, _cursorX, _cursorY); // get rid of last char
                 return ConsoleKeyAction::Cursor;
             }
@@ -273,17 +300,36 @@ class Console : Print{
 
     private:
     void _drawTextFromRam();
+    void _drawEcho();
     void _processKey(char keyVal);
+    void _initSD();
+    void _listFiles(const char * path, bool recursive = true, int indent = 0, uint8_t flags = LS_DATE | LS_SIZE);
+
+    int getCoords(const char* str, int * coords, int offset = 0);
 
 
     private:    
     
-    bool _consoleRunning = false;    
-    
+    bool _consoleRunning = false; 
+    bool _commandMode = false;   
+    byte _scratch[256];
     uint16_t _lastIdx = 0;
     
     uint16_t _windowHeight = 240;
+    //const char* _prompt = "%s |>";
+    String _path = "/";
+    uint16_t _promptLength = 5;
+    bool _echoPrompt = true;
+    uint16_t _consoleLine = 0;
+    CommandHistory _history;
+    uint8_t _commandViewIdx = 0;
+    bool _initialized = false;
+
+    Sd2Card card;
+    SdVolume volume;
+    SdFile root;
     
+    DueFlashStorage dueFlashStorage;
 };
 
 #endif
