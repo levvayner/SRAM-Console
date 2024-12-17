@@ -261,7 +261,7 @@ class Console : Print{
                     //Serial.print("Backspace char 1..");
                     nextChar = port.read();
                     if(nextChar == 0x8){ //backspace
-                        if(!this->IsConsoleRunning() || !_echoPrompt || _cursorX < _promptLength * graphics.settings.charWidth){
+                        if((!this->IsConsoleRunning() || !_echoPrompt ) || _cursorX > _promptLength * graphics.settings.charWidth){
                             EraseCursor();
                             //_printChar(0, _cursorX, _cursorY); // get rid of cursor
                             ReverseCursor();

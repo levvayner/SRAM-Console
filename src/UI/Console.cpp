@@ -496,7 +496,7 @@ int Console::RunProgram(const char *programName)
         memAddr+= bytesRead;
         
     }
-    Serial.println("Done loading binary at 0x8000");
+    Serial.print("Done loading binary at 0x"); Serial.println(IFLASH1_ADDR, HEX);
     
     
     

@@ -25,7 +25,7 @@ static void startApp(int32_t appStartAddress) {
     } else {
         Serial.print("App provided valid address 0x"); Serial.println(app_start_address, HEX);
     }
-    app_start_address += IFLASH0_SIZE;
+    //app_start_address += IFLASH0_SIZE;
     if (RESET_CONTROLLER->RSTC_SR & 0x1 << 17) { //reset in progress
         *DBL_TAP_PTR = 0;
     }
@@ -40,21 +40,23 @@ static void startApp(int32_t appStartAddress) {
         }
         *DBL_TAP_PTR = 0;
     }
-
-    /* Rebase the Stack Pointer */
-    __set_MSP(*(uint32_t *)appStartAddress);
-
-    /* Rebase the vector table base address */
-    SCB->VTOR = ((uint32_t)appStartAddress & SCB_VTOR_TBLOFF_Msk);
     Serial.print("Jumping into application at 0x"); Serial.println(app_start_address, HEX);
-    /* Jump to application Reset Handler in the application */
-    //asm("bx %0" ::"r"(app_start_address)); 
-                                                             // This is where we leave off
+    delay(200);
+    Serial.end();
     graphics.~VRAM();
-    void (*ptr)();
-    ptr =  (void (*)(void))(unsigned *)(*(unsigned *)(app_start_address));
-    ptr();
+    /* Rebase the Stack Pointer */
+    // __set_MSP(*(uint32_t *)appStartAddress);
 
-    //if we return
-    graphics = VRAM();
+    // /* Rebase the vector table base address */
+    // SCB->VTOR = ((uint32_t)appStartAddress & SCB_VTOR_TBLOFF_Msk);
+    
+    /* Jump to application Reset Handler in the application */
+    asm("bx %0" ::"r"(app_start_address)); 
+                                                             // This is where we leave off
+    //
+    //void (*ptr)();
+    //ptr =  (void (*)(void))(unsigned *)(*(unsigned *)(app_start_address));
+    //ptr(); //call reset vector of loaded binary
+    Serial.println("This code will never be hit!");
+
 }
