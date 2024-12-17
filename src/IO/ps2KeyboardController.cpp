@@ -1,6 +1,7 @@
 #include "ps2KeyboardController.h"
 #include "UI/Editor.hpp"
 // extern Editor editor;
+PS2KeyAdvanced keyboardPs2;
 void ps2KeyboardController::begin()
 {
     // Configure the keyboard library

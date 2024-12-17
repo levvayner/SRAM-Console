@@ -2,9 +2,8 @@
 #include "SRAM/SRAM.h"
 #include "SRAM/VRAM.h"
 #include "UI/Editor.hpp"
-#include "PS2KeyAdvanced.h"
+
 #include "UI/UI.h"
-#include "IO/ps2KeyboardController.h"
 #include <SPI.h>
 #include "SD.h"
 
@@ -16,23 +15,23 @@ Console console;
 Editor editor;
 USBHost usb;
 KeyboardController keyboardUsb(usb);
-PS2KeyAdvanced keyboardPs2;
+
 ps2KeyboardController ps2Controller;
 UI ui = UI();
 
 
 
 // This function intercepts key press
-void keyPressed() {
-    if(editor.IsConsoleRunning())
-        editor.processUSBKey();
-  Serial.print("Pressed:  ");
-}
+// void keyPressed() {
+//     if(editor.IsConsoleRunning())
+//         editor.processUSBKey();
+//   Serial.print("Pressed:  ");
+// }
 
-// This function intercepts key release
-void keyReleased() {
-  Serial.print("Released: ");
-}
+// // This function intercepts key release
+// void keyReleased() {
+//   Serial.print("Released: ");
+// }
 
 
 void setup() {
