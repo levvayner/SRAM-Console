@@ -103,7 +103,7 @@ void ScreenSaver::step()
         break;
     }
     
-    graphics.fillRectangle( x() * tileWidth, y() * tileHeight, tileWidth, tileHeight, _color, btVertical );
+    graphics.fillRectangle( (x() * tileWidth) + 1, (y() * tileHeight) + 1, tileWidth - 2, tileHeight - 2, _color, btVertical );
     _frameBuffer[_currentPosition] = _color;
 
     if(collissionOccured == true){

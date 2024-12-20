@@ -4,6 +4,7 @@
 
 extern VRAM graphics;
 bool Bitmap::ParseFileHeader(File* bmpFile) {
+	char buf[128];
 
     Serial.print("Parsing file header.. ");
     uint16_t read = read16(*bmpFile);
@@ -16,6 +17,8 @@ bool Bitmap::ParseFileHeader(File* bmpFile) {
 		Serial.print(F("Header size: ")); Serial.println(read32(*bmpFile));
 		bmpWidth = read32(*bmpFile);
 		bmpHeight = read32(*bmpFile);
+		sprintf(buf, "Image Size: %dx%d", bmpWidth, bmpHeight);
+		Serial.println(buf);
 		if (read16(*bmpFile) == 1) { // # planes -- must be '1'
 			bmpDepth = read16(*bmpFile); // bits per pixel
 			Serial.print(F("Bit Depth: ")); Serial.println(bmpDepth);
@@ -60,7 +63,7 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
 	uint16_t      w, h, row, col;
 	uint32_t  r, g, b, a;
 	uint32_t pos = 0, startTime = millis();
-	uint8_t  lcdidx = 0;
+	uint16_t  lcdidx = 0;
 	//boolean  first = true;
 	/*uint16_t red_mask = 0xF800;
 	uint16_t green_mask = 0x7E0;
@@ -69,7 +72,7 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
 	uint8_t green_value = 0;
 	uint8_t blue_value = 0;*/
 
-	unsigned long initialStartTime = 0,
+	unsigned long initialStartTime = millis(),
 		loadTime = 0, drawTime = 0, loadTimeTotal = 0, drawTimeTotal = 0, calcTime = 0, calcTimeTotal = 0;
 
 	if ((x >= graphics.settings.screenWidth) || (y >= graphics.settings.screenHeight)) return false;
@@ -92,36 +95,36 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
 	if (!parsed)  return false;
     int buffSize = bmpWidth * (bmpDepth / 8);
     uint8_t  sdbuffer[buffSize];
-    uint8_t lcdbuffer[buffSize];
+    uint8_t lcdbuffer[bmpWidth];
     uint16_t  buffidx = sizeof(sdbuffer); // Current position in sdbuffer
 	if ((bmpDepth == 16 || bmpDepth == 24 || bmpDepth == 32 || bmpDepth == 8)) {
 		uint8_t compress = read32(bmpFile);
 		if (compress != 0)// 0 = uncompressed
 			printf("Compression flag should be zero. Instead: %d\r\n", compress);
 
-		byte hi, low;
+		byte hi, lo;
 		
 		goodBmp = true; // Supported BMP format -- proceed!
 		//printf("Drawing BMP file with size of %d x %d and depth of %d at (%d, %d)\r\n", bmpWidth, bmpHeight, bmpDepth, x, y);
 		rowSize = (bmpWidth * (bmpDepth / 8) + (bmpDepth / 8)) & ~3;
 
-		uint8_t red_value = 0;
-		uint8_t green_value = 0;
-		uint8_t blue_value = 0;
+		// uint8_t red_value = 0;
+		// uint8_t green_value = 0;
+		// uint8_t blue_value = 0;
 
-		if (bmpDepth == 32) {
-			uint16_t pixel = 0;// _tft->readPixel(1, 1);
-			uint16_t red_mask = 0xF800;
-			uint16_t green_mask = 0x7E0;
-			uint16_t blue_mask = 0x1F;
+		// if (bmpDepth == 32) {
+		// 	uint16_t pixel = 0;// _tft->readPixel(1, 1);
+		// 	uint16_t red_mask = 0xF800;
+		// 	uint16_t green_mask = 0x7E0;
+		// 	uint16_t blue_mask = 0x1F;
 
-			red_value = (pixel & red_mask) >> 11;
-			green_value = (pixel & green_mask) >> 5;
-			blue_value = (pixel & blue_mask);
+		// 	red_value = (pixel & red_mask) >> 11;
+		// 	green_value = (pixel & green_mask) >> 5;
+		// 	blue_value = (pixel & blue_mask);
 
-			rowSize = bmpWidth * (bmpDepth / 8);
-			//printf("Blending with backgorund color %d, %d, %d\r\n", red_value, green_value, blue_value);
-		}
+		// 	rowSize = bmpWidth * (bmpDepth / 8);
+		// 	//printf("Blending with backgorund color %d, %d, %d\r\n", red_value, green_value, blue_value);
+		// }
 
 		// BMP rows are padded (if needed) to 4-byte boundary
 
@@ -135,7 +138,11 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
 		// Crop area to be loaded
 		w = bmpWidth;
 		h = bmpHeight;
-		// if ((x + w - 1) >= graphics.settings.screenHeight)  w = graphics.settings.screenWidth - x;
+
+		double pixelRatio = (double)w / (double)graphics.settings.screenWidth;
+		sprintf(buf,  "Image to screen pixel ratio: %2.3lf",  pixelRatio);
+		Serial.println(buf);
+		// if ((x + w - 1) >= graphics.settings.screenWidth)  w = graphics.settings.screenWidth - x;
 		// if ((y + h - 1) >= graphics.settings.screenHeight) h = graphics.settings.screenHeight - y;
 
 		////override with passed values
@@ -145,8 +152,12 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
 		// Set TFT address window to clipped image bounds
 		//_tft->setAddrWindow(x, y, x + w - 1, y + h - 1);
 
-		for (row = 0; row < min(h,graphics.settings.screenHeight); row++) { 
-			
+		for (row = 0; row < min(h, graphics.settings.screenHeight) ; row++) { 
+			 lcdidx = 0;
+
+			startTime = millis();
+			memset(sdbuffer,0, buffSize);
+			memset(lcdbuffer, 0, w);
 			if (flip) // Bitmap is stored bottom-to-top order (normal BMP)
 				pos = bmpImageoffset + (bmpHeight - 1 - row) * rowSize;
 			else     // Bitmap is stored top-to-bottom
@@ -157,24 +168,17 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
 				//Serial.print("  *  FORCE RELOAD  *  ");
 
 			}
-            lcdidx = 0;		
-			startTime = millis();
+
 			bmpFile.read(sdbuffer, buffSize);
 			buffidx = 0; // Set index to beginning
 			loadTime += (millis() - startTime);
 			startTime = millis();
 
 			for (col = 0; col < w; col++) { // For each column...
-											// Time to read more pixel data?	
-               
-				// Convert pixel from BMP to TFT format
 				switch (bmpDepth) {
-                case 8:
-                    lcdbuffer[lcdidx++] = sdbuffer[buffidx++];
-                    break;
 				case 16:
 					hi = sdbuffer[buffidx++];
-					low = sdbuffer[buffidx++];
+					lo = sdbuffer[buffidx++];
 					lcdbuffer[lcdidx++] = (r >> 1) << 5 | (g >> 2) << 2 | b >>1;
 					break;
 				case 24:
@@ -190,10 +194,10 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
 						g = sdbuffer[buffidx++];
 						r = sdbuffer[buffidx++];
 						buffidx++; //a
-						lcdbuffer[lcdidx++] = (r >> 2) << 5 | (g >> 2) << 2 | b >>1;
+						lcdbuffer[lcdidx++] = (r >> 3)  << 5 | (g >>3) << 2 | ((b >> 3) &0x3);
 					}
 					else {
-						//lcdbuffer[lcdidx++] = bg_color;
+						lcdbuffer[lcdidx++] = bg_color;
 						buffidx += 4;
 					}
 
@@ -202,46 +206,35 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
 					printf("Unknown BMP depth %d in file %s", bmpDepth, filename);
 					return false;
 				}
-                //graphics.drawPixel(col,row, (r >> 2) << 5 | (g >> 2) << 2 | b >>1);
 				//_tft->setTextColor(_tft->color565(r, g, b));
 				
 			} // end pixel
-            if (lcdidx > 0) {
-                //calculate pixel ratio
-                double pixelRatio = (double)w / (double)graphics.settings.screenWidth;
-                sprintf(buf,  "Image to screen pixel ratio: %2.3lf",  pixelRatio);
-                Serial.println(buf);
+			calcTime += millis() - startTime;
+			//calculate pixel ratio
+			
+
+			startTime = millis();
+
+			if (lcdidx > 0) {
+                
                 //above 1 if the screen is smaller than image
                 if(pixelRatio > 1){
                     //collapse, calculating approximate middle
-                    for(int idx = 0; idx < graphics.settings.screenWidth; idx++){
-                        int sourcePixel = int(((double)idx)*pixelRatio);
+                    for(uint16_t idx = 0; idx < graphics.settings.screenWidth; idx++){
+                        uint16_t sourcePixel = uint16_t(((double)idx)*pixelRatio);
                         
                         
                         //get neighbors based on pixel ratio, adjust color to match original pixel's neighbors
-                        int offsetLeftIdx = (int)round(sourcePixel - pixelRatio);
-                        int offsetRightIdx = (int)round(sourcePixel + pixelRatio);
+                        uint16_t offsetLeftIdx = (uint16_t)round(sourcePixel - pixelRatio);
+                        uint16_t offsetRightIdx = (uint16_t)round(sourcePixel + pixelRatio);
 
                         if(offsetLeftIdx < 0){
                             offsetRightIdx -= offsetLeftIdx;
                             offsetLeftIdx = 0;
                         }
                         byte color = lcdbuffer[sourcePixel];
-                        for(int calcIdx = offsetLeftIdx; calcIdx < offsetRightIdx; calcIdx++){
-                            // int distance = abs(sourcePixel - calcIdx);
-                            // double weight = ((pixelRatio - distance) *100 / 110);
-                            // sprintf(buf, 
-                            //     "Adjusting color %d in pixel (%d,%d) from pixel (%d,%d) with distance %d and weight %2.3lf to pixel (%d,%d)", 
-                            //     color,
-                            //     sourcePixel, row,
-                            //     calcIdx, row,
-                            //     distance,
-                            //     weight,
-                            //     idx, row
-                            // );
-                            // Serial.println(buf);
-                            color = VRAM::mulitplyColors(color, lcdbuffer[calcIdx]);
-                            //color += (lcdbuffer[calcIdx] * weight);
+                        for(int calcIdx = offsetLeftIdx; calcIdx < offsetRightIdx; calcIdx++){                            
+                            color = VRAM::averageColors(color, lcdbuffer[calcIdx]);
                         }
                         lcdbuffer[idx] = color;
 
@@ -249,14 +242,15 @@ bool Bitmap::drawFile(const char* filename, int x, int y, uint16_t bg_color)
                     graphics.drawBuffer(0, row, graphics.settings.screenWidth, 1, lcdbuffer);
                 }
                 else{
-                    graphics.drawBuffer(0, row, w, 1, lcdbuffer);
+                    graphics.drawBuffer(0, row, graphics.settings.screenWidth, 1, lcdbuffer + 50);
                     
                 }
-            drawTime += millis() - startTime;
+            	drawTime += millis() - startTime;
 			//_tft->pushColors(lcdbuffer, lcdidx, first);
-		}
+			}
+			
 		} // end scanline
-        calcTime += millis() - startTime;
+        //calcTime += millis() - startTime;
         
 			// Write any remaining data to LCD
 		

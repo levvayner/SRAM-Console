@@ -178,6 +178,21 @@ class VRAM : public SRAM{
         /// @brief renders frame buffer to screen (writes to ram)
         virtual void render();
 
+    static inline uint8_t averageColors(uint8_t a, uint8_t b){
+        return (((a>> 5) + (b >> 5)) >> 1) << 5 | 
+        ((((a >> 3 )& 0x7) + ((b >> 3)  & 0x7)) >> 1) << 3 | 
+        ((((a & 0x3) + (b & 0x3)) >> 1) & 0x3);
+    }
+
+
+    static inline  uint8_t diffColors(uint8_t a, uint8_t b) {
+        return ((a>> 5) + (b >> 5) / 2) << 5 | 
+        (((a >> 3 )& 0x7) + ((b >> 3)  & 0x7)/ 2) << 3 | 
+        ((a & 0x3 + b&0x3)/2) & 0x3;
+        // uint8_t s = a + b;
+        // uint8_t m = (s - ((a ^ b) & 0x01010101)) & 0x01010101;
+	    // return s - m;
+    }
 
     static inline  uint8_t mulitplyColors(uint8_t a, uint8_t b) {
         uint8_t s = a + b;

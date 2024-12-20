@@ -43,6 +43,11 @@ extern VRAM graphics;
 extern ProgramRom programRom;
 extern KeyboardController keyboardUsb;
 extern ps2KeyboardController ps2Controller;
+
+union ScratchArea{
+    byte bytes[256];
+    char text[256];
+};
 class Console : Print{
 
     public:
@@ -88,7 +93,7 @@ class Console : Print{
     size_t println(const Printable&);
     size_t println(void);
 
-    virtual inline void clear(){ programmer.Erase(0, (_windowHeight + 1) << graphics.settings.horizontalBits);}
+    virtual inline void clear(){ programmer.Erase(0, (graphics.settings.screenHeight + 1) << graphics.settings.horizontalBits);}
     virtual inline void clearData(){ programmer.Erase(1<<19, graphics.settings.screenBufferHeight * (graphics.settings.screenWidth/graphics.settings.charWidth));}
 
     virtual inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ _cursorX = x; _cursorY = y; }
@@ -146,6 +151,9 @@ class Console : Print{
     inline void SetWindowHeight(int height){ _windowHeight = height;}
     void DrawCursor();
     void EraseCursor();
+    inline uint32_t LastIdx(){
+        return _lastIdx;
+    }
 
     int getCurrentLineNumber(){
         return _scrollOffset + _cursorY / graphics.settings.charHeight;
@@ -261,7 +269,9 @@ class Console : Print{
                     //Serial.print("Backspace char 1..");
                     nextChar = port.read();
                     if(nextChar == 0x8){ //backspace
-                        if(!this->IsConsoleRunning() || !_echoPrompt || _cursorX < _promptLength * graphics.settings.charWidth){
+                    Serial.print("Echo prompt:"); Serial.print(_echoPrompt);
+                    Serial.print("  Cursor X: "); Serial.print(_cursorX); Serial.print(", min: "); Serial.println(_promptLength * graphics.settings.charWidth);
+                        if(!_echoPrompt || _cursorX > _promptLength * graphics.settings.charWidth){
                             EraseCursor();
                             //_printChar(0, _cursorX, _cursorY); // get rid of cursor
                             ReverseCursor();
@@ -274,11 +284,17 @@ class Console : Print{
                 }
             }
             
-            if(chr == 0x8){                
-                EraseCursor();
-                //_printChar(0, _cursorX, _cursorY); // get rid of cursor
-                ReverseCursor();
-                graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, Color::BLACK);
+            if(chr == 0x8){        
+                Serial.print("Echo prompt:"); Serial.print(_echoPrompt);
+                Serial.print("  Cursor X: "); Serial.print(_cursorX); Serial.print(", min: "); Serial.println(_promptLength * graphics.settings.charWidth);
+                    
+                if((_echoPrompt && (echoY != _cursorY || _cursorX > (_promptLength * graphics.settings.charWidth)) ) || (!_echoPrompt) ){        
+                    Serial.print("Erasing");
+                    EraseCursor();
+                    //_printChar(0, _cursorX, _cursorY); // get rid of cursor
+                    ReverseCursor();
+                    graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, Color::BLACK);
+                }
                 //_printChar(0, _cursorX, _cursorY); // get rid of last char
                 return ConsoleKeyAction::Cursor;
             }
@@ -312,7 +328,7 @@ class Console : Print{
     
     bool _consoleRunning = false; 
     bool _commandMode = false;   
-    byte _scratch[256];
+    ScratchArea _scratch;
     uint16_t _lastIdx = 0;
     
     uint16_t _windowHeight = 240;
@@ -320,6 +336,7 @@ class Console : Print{
     String _path = "/";
     uint16_t _promptLength = 5;
     bool _echoPrompt = true;
+    uint16_t echoY = 0;
     uint16_t _consoleLine = 0;
     CommandHistory _history;
     uint8_t _commandViewIdx = 0;

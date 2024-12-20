@@ -22,7 +22,12 @@ static void startApp(int32_t appStartAddress) {
         Serial.print(" is out of valid range  0x");Serial.print(IFLASH0_ADDR, HEX); Serial.print(" to 0x");
         Serial.println(IFLASH_SIZE + IFLASH0_ADDR, HEX);
         return ;
-    } else {
+    } else if(app_start_address - appStartAddress > IFLASH0_SIZE) {
+        Serial.println("Wrong memory bank. Quitting");
+        return;
+
+    }
+        else {
         Serial.print("App provided valid address 0x"); Serial.println(app_start_address, HEX);
     }
     app_start_address += IFLASH0_SIZE;
