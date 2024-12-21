@@ -1,37 +1,22 @@
 #include <Arduino.h>
-#include "SRAM/SRAM.h"
-#include "SRAM/VRAM.h"
-#include "UI/Editor.hpp"
+#include "UI/Console/Console.hpp"
+#include "UI/Editor/Editor.hpp"
 
 #include "UI/UI.h"
 #include <SPI.h>
 #include "SD.h"
 
 
-SRAM programmer = SRAM();
-VRAM graphics = VRAM();
+SRAM programmer;
+VRAM graphics;
 ProgramRom programRom = ProgramRom();
 Console console;
 Editor editor;
 USBHost usb;
-KeyboardController keyboardUsb(usb);
+//KeyboardController keyboardUsb(usb);
 
 ps2KeyboardController ps2Controller;
-UI ui = UI();
-
-
-
-// This function intercepts key press
-// void keyPressed() {
-//     if(editor.IsConsoleRunning())
-//         editor.processUSBKey();
-//   Serial.print("Pressed:  ");
-// }
-
-// // This function intercepts key release
-// void keyReleased() {
-//   Serial.print("Released: ");
-// }
+//extern UI ui;
 
 
 void setup() {
@@ -39,7 +24,8 @@ void setup() {
     graphics.begin();
     pinMode(PIN_LED, OUTPUT);
     
-    ps2Controller.begin();
+    keyboard.begin();   
+    //ps2Controller.begin();
 
 	digitalWrite(PIN_LED, LOW);
 	Serial.println("");
@@ -49,7 +35,7 @@ void setup() {
     if(!SD.begin(10)){        
         Serial.println("Failed to start SD");
     }
-
+    ui.begin();
 }
 
 

@@ -1,4 +1,7 @@
 #include "Console.hpp"
+#include "../Editor/Editor.hpp"
+#include "ConsoleCommands.h"
+extern Editor editor;
 
 
 size_t Console::write(uint8_t data, bool useFrameBuffer)
@@ -20,7 +23,7 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
         if(_commandMode){ //execute command
             if(_echoPrompt){
                 // memset(_scratch,0, sizeof(_scratch));
-                // sprintf((char*)_scratch, _prompt, _path.c_str());
+                // sprintf(_scratch.text, _prompt, _path.c_str());
                 startAddr += _promptLength;//strlen((const char*)_scratch);
                 cmdLength -= _promptLength;//strlen((const char*)_scratch);
             }
@@ -28,7 +31,7 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
             memset(cmd, 0, sizeof(cmd));
             programmer.ReadString((1 << 19 )| startAddr, (uint8_t*)cmd, cmdLength);     
 
-            ProcessCommand(cmd);
+            //ProcessCommand(cmd);
            
            
 
@@ -45,7 +48,7 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
     }
     if(data == 13) return 0; 
 
-    graphics.drawText(_cursorX,_cursorY, data, color, backgroundColor, clearBackround, useFrameBuffer);
+    graphics.drawText(_cursorX,_cursorY, (char)data, color, backgroundColor, clearBackround, useFrameBuffer);
     
     if(_consoleRunning && !useFrameBuffer) {
         //Serial.print("Stored command to 0x"); Serial.println(pos,HEX);
@@ -77,11 +80,18 @@ size_t Console::write(const uint8_t *buffer, size_t size)
     return size;
 }
 
-
+void consoleProcessKey(uint8_t keyCode){
+    console.processKey(keyCode);
+}
 
 void Console::run(bool blocking )
 {
     _consoleRunning = blocking;
+    if(blocking){
+        commands.clearCommands(CONTEXT_CONSOLE);
+        registerConsoleCommands();
+    }
+    keyboard.onKeyDown = consoleProcessKey;
     
     
     _cursorX = 0;
@@ -89,63 +99,24 @@ void Console::run(bool blocking )
     
     Serial.println("Enter text to render. Ctrl+R to quit");
     charsPerLine = graphics.settings.screenWidth / graphics.settings.charWidth;
-    //DRAW BOTTOM SECTION
     clear();
-    if(!_initialized)
-        _initSD();
-    _commandMode = blocking;
-    clearData(); 
-    _drawEcho();   
-   
-    while(_consoleRunning && blocking){
-        //ps2Controller.loop();
-        checkPort(Serial);
-        checkPort<PS2KeyAdvanced>(keyboardPs2);
-
-        if(_cursorVisible){
-            if(millis() - _lastCursorChange > 1200){
-                _lastCursorChange = millis();
-                _cursorState = !_cursorState;
-                DrawCursor();
-            }
-        }
+    if(blocking){
+        
+        if(!_initialized)
+            _initSD();
+        _commandMode = blocking;
+        clearData(); 
+        _drawEcho();   
     }
-    
   
 }
 
-
-
-void Console::processUSBKey()
+void Console::stop()
 {
-    auto mods = keyboardUsb.getModifiers();
-    if(mods != 0){
-        //process control keys
-    } else{
-        //regular keys
-    }
-    char keyVal = keyboardUsb.getKey();
-
-    _processKey(keyVal);
-
-}
-ConsoleKeyAction Console::processPS2Key(uint8_t ps2KeyCode)
-{
-   
-    switch (ps2KeyCode)
-    {
-    case PS2_KEY_F2:
-        textColor--;  
-        return ColorChange;
-    case PS2_KEY_F3:
-        textColor++;  
-        return ColorChange;
-    case PS2_KEY_F4:
-        _consoleRunning = false;
-    default:
-        Serial.print("Received unmapped ps2 key: 0x"); Serial.println(ps2KeyCode, HEX);
-        break;
-    }
+    _consoleRunning = false;
+    _commandMode = false;
+    commands.clearCommands(CONTEXT_CONSOLE);
+    keyboard.onKeyDown = nullptr;
 }
 
 void Console::_drawTextFromRam()
@@ -175,19 +146,20 @@ void Console::_drawTextFromRam()
         
             
         for(uint16_t idx = 0; idx < lineLength; idx++){
-            if((buf[idx] >= 32 && buf[idx] < 127) || buf[idx] == 10) lineHasText = true;
+            if((buf[idx] >= 32 && buf[idx] < 127)) lineHasText = true;
             //if( isascii(buf[idx]) && buf[idx] != 0) lineHasText = true;
             else buf[idx] = ' ';
         }
         if(lineHasText){
             
-            sprintf(textBuf, "Writing %i chars from idx %d to %d on line %lu", strlen(buf), line * charsPerLine, (line * charsPerLine) + lineLength - 1, line);
-            Serial.println(textBuf);
+            //sprintf(textBuf, "Writing %i chars from idx %d to %d on line %lu", strlen(buf), line * charsPerLine, (line * charsPerLine) + lineLength - 1, line);
+            //Serial.println(textBuf);
             Serial.println(buf);
             graphics.drawTextToBuffer(buf, colorBuf, lineBuf, graphics.settings.screenWidth);
             graphics.drawBuffer(0, line * graphics.settings.charHeight, graphics.settings.screenWidth, graphics.settings.charHeight, lineBuf);
         }
     }
+    Serial.println("-----------------------");
     programmer.ReadByte(0x0); 
     //graphics.render();
     _consoleRunning = true;
@@ -197,6 +169,7 @@ void Console::_drawEcho()
 {
     char buf[256];
     if(_consoleRunning && _commandMode && _echoPrompt){
+        echoY = _cursorY;
         memset(buf, 0, sizeof(buf));
         sprintf(buf, "%s |>", _path.c_str());
         _promptLength = strlen(buf);
@@ -204,100 +177,86 @@ void Console::_drawEcho()
     }
 }
 
-void Console::_processKey(char keyVal)
-{
-    Serial.print("Processing usb key: "); Serial.println(keyVal);
-    write(keyVal);
-}
+// void Console::_processKey(char keyVal)
+// {
+//     Serial.print("Processing usb key: "); Serial.println(keyVal);
+//     write(keyVal);
+// }
 
 void Console::_initSD()
 {
-    print("\nInitializing SD card...");
+    if(this->_commandMode)
+        print("\nInitializing SD card...");
     // we'll use the initialization code from the utility libraries
     // since we're just testing if the card is working!
-    if (!card.init(SPI_HALF_SPEED, 10)) {
+    if (!card.init(SPI_HALF_SPEED, 10) && this->_commandMode) {
         println("initialization failed. Things to check:");
         println("* is a card inserted?");
         println("* is your wiring correct?");
         println("* did you change the chipSelect pin to match your shield or module?");
         while (1);
     } else {
-        println("Wiring is correct and a card is present.");
+        if(this->_commandMode)
+            println("Found!");
     }
     // print the type of card
-    println();
-    print("Card type:         ");
-    switch (card.type()) {
-        case SD_CARD_TYPE_SD1:
-        println("SD1");
-        break;
-        case SD_CARD_TYPE_SD2:
-        println("SD2");
-        break;
-        case SD_CARD_TYPE_SDHC:
-        println("SDHC");
-        break;
-        default:
-        println("Unknown");
+    if(this->_commandMode){
+        println();
+        print("Card type:         ");
+   
+        switch (card.type()) {
+            case SD_CARD_TYPE_SD1:
+            println("SD1");
+            break;
+            case SD_CARD_TYPE_SD2:
+            println("SD2");
+            break;
+            case SD_CARD_TYPE_SDHC:
+            println("SDHC");
+            break;
+            default:
+            println("Unknown");
+        }
     }
     // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
-    if (!volume.init(card)) {
+    if (!volume.init(card) && _commandMode) {
         Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
         while (1);
     }
-    print("Clusters:          ");
-    println(volume.clusterCount());
-    print("Blocks x Cluster:  ");
-    println(volume.blocksPerCluster());
-    print("     Total Blocks:      ");
-    println(volume.blocksPerCluster() * volume.clusterCount());
-    println();
-    // print the type and size of the first FAT-type volume
-    uint32_t volumesize;
-    print("Volume type is:    FAT  ");
-    println(volume.fatType(), DEC);
-    volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
-    volumesize *= volume.clusterCount();       // we'll have a lot of clusters
-    volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1KB)
-    print("Volume size (Kb):  ");
-    println(volumesize);
-    print("Volume size (Mb):  ");
-    volumesize /= 1024;
-    println(volumesize);
-    print("Volume size (Gb):  ");
-    println((float)volumesize / 1024.0);    
-    // list all files in the card with date and size
-    root.ls(LS_R | LS_DATE | LS_SIZE);
-    root.close();
-    _initialized = true;
-}
 
-void Console::_listFiles(const char * path, bool recursive, int indent,  uint8_t  flags)
-{
-    File rootFile = SD.open(path);
-    File entry;
-    _commandMode = false;
-    while(true){
-        entry = rootFile.openNextFile();
-        if(!entry) break;
-        print(entry.name());
-        for(int idx = 0; idx < 20 - strlen(entry.name()); idx++)
-            print(" ");
-        if(entry.isDirectory())
-            print("<dir>");
-        else 
-            print(entry.size());
-        entry = entry.openNextFile();
-        write(10,true);
-        if(entry.isDirectory()){
-            _listFiles(entry.name(), recursive, indent + 1, flags);
+    if(_commandMode)
+    {
+        print("Clusters:          ");
+        println(volume.clusterCount());
+        print("Blocks x Cluster:  ");
+        print(volume.blocksPerCluster());
+        write(10);
+        print("Total Blocks:      ");
+        println(volume.blocksPerCluster() * volume.clusterCount());
+        println();
+        // print the type and size of the first FAT-type volume
+        uint32_t volumesize;
+        memset(_scratch.bytes,0,sizeof(_scratch));
+        sprintf(_scratch.text, "Volume type is:    FAT%d", volume.fatType());
+        graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, backgroundColor);
+        write(10);
+        
+        volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
+        volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+        volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1KB)
+        if(volumesize < 2048){
+            sprintf(_scratch.text, "Volume size        %lu KB", volumesize);
+        }else if(volumesize < 1024*2048){
+            sprintf(_scratch.text, "Volume size        %lu MB", volumesize/1024);
+        }else{
+            sprintf(_scratch.text, "Volume size        %lu GB", volumesize/(1024*1024));
         }
+        graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, backgroundColor);
+        write(10);
     }
-    _commandMode = true;
-    entry.close();
-    rootFile.close();
-
-    
+    //root.ls(LS_R | LS_DATE | LS_SIZE);
+    //root.close();
+    _initialized = true;
 }
 
 int Console::getCoords(const char *str, int *coords, int offset)
@@ -307,18 +266,18 @@ int Console::getCoords(const char *str, int *coords, int offset)
     int cursorIdx = offset;
     for(; cursorIdx < strlen(str); cursorIdx++){
         if(str[cursorIdx] ==','){
-            memset(_scratch, 0 , sizeof(_scratch));
-            memcpy(_scratch, str + offset, cursorIdx - offset);
+            memset(_scratch.bytes, 0 , sizeof(_scratch));
+            memcpy(_scratch.bytes, str + offset, cursorIdx - offset);
             //Serial.print("Coord found: "); Serial.println((const char *)_scratch);
-            coords[coordsFound] = atoi((const char *)_scratch);
+            coords[coordsFound] = atoi(_scratch.text);
             coordsFound++;
             offset = cursorIdx + 1;
         }
     }
     if(offset < cursorIdx){
-        memset(_scratch, 0 , sizeof(_scratch));
-        memcpy(_scratch, str + offset, cursorIdx - offset);
-        coords[coordsFound] = atoi((const char *)_scratch);
+        memset(_scratch.bytes, 0 , sizeof(_scratch));
+        memcpy(_scratch.bytes, str + offset, cursorIdx - offset);
+        coords[coordsFound] = atoi(_scratch.text);
         coordsFound++;
     }
     // Serial.print("found "); Serial.print(coordsFound); Serial.print(" coords");
@@ -327,6 +286,11 @@ int Console::getCoords(const char *str, int *coords, int offset)
     // }
     // Serial.println();
     return coordsFound;
+}
+
+inline void Console::processKey(uint8_t keyCode)
+{
+    //Serial.print("Received key"); Serial.println(keyCode);
 }
 
 bool Console::AdvanceCursor(bool nextLine)
@@ -367,9 +331,9 @@ bool Console::ReverseCursor()
         _cursorY -= graphics.settings.charHeight;
         _cursorX = ((graphics.settings.screenWidth / graphics.settings.charWidth) -1 ) * graphics.settings.charWidth;
         if(_cursorX % 6 != 0) _cursorX -= _cursorX % 6; // adjust to 6 pixel wide char grid
-    } else if(!_echoPrompt || _cursorX < _promptLength * graphics.settings.charWidth){
+    } else //if(!_echoPrompt || _cursorX > _promptLength * graphics.settings.charWidth){
         _cursorX -= (graphics.settings.charWidth);
-    }
+    //}
     return true;
 }
 
@@ -471,259 +435,57 @@ bool Console::MoveCursorLeft()
     return true;
 }
 
-int Console::RunProgram(const char *programName)
-{
-    byte buf[256];
-    //byte bufVerify[256];
-    Serial.print("Running ["); Serial.print(programName); Serial.println("]");
-    if(!SD.exists((_path + (_path.length()  == 1 ? "" : "/") + programName).c_str()))
-    {
-        Serial.println("File not found!");
-        return -1;
-    }
-    File program = SD.open((_path + (_path.length()  == 1 ? "" : "/") + programName).c_str());
-    uint32_t  memAddr = 0x0;
-    int bytesRead = 0;//, bytesWritten = 0;
-    while(true){
-        //uint8_t data = 0;
-        bytesRead = program.read(buf,sizeof(buf));
-        if(!program.available()) break;
-        if(bytesRead == 0) break;
-        if(!dueFlashStorage.write(memAddr,buf,bytesRead)){
-            Serial.println("Error occured writing data");
-            return -1;
-        }
-        memAddr+= bytesRead;
-        
-    }
-    Serial.print("Done loading binary at 0x"); Serial.println(IFLASH1_ADDR, HEX);
-    
-    
-    
-    startApp(IFLASH1_ADDR);
-    Serial.print("Returned control");
-    return 0;
-}
 
 void Console::DrawCursor()
 {
     //ifnot visible, hide, otherwise if visible show, else hide
     
-    memset(_scratch, (_cursorVisible && _cursorState) ? Color::WHITE : Color::BLACK, graphics.settings.charWidth);
-    graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch, graphics.settings.charWidth);
+    memset(_scratch.bytes, (_cursorVisible && _cursorState) ? Color::WHITE : Color::BLACK, graphics.settings.charWidth);
+    graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
     //graphics.drawLine(_cursorX, _cursorY + graphics.settings.charHeight, _cursorX + 6, _cursorY + graphics.settings.charHeight, (_cursorVisible && _cursorState) ? Color::WHITE : Color::BLACK);
 }
 
 void Console::EraseCursor()
 {
-    memset(_scratch, 0, graphics.settings.charWidth);
-    graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch, graphics.settings.charWidth);
+    memset(_scratch.bytes, 0, graphics.settings.charWidth);
+    graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
     
 }
 
-int Console::ProcessCommand(const char *command)
-{
-    //auto commandString = String(command);
-    int cmdLength = strlen(command);
-    Serial.print("Received command line: "); Serial.println(command);
-    char cmd[64];
-    char args[240];
-    bool drawCommand = false;
-    DrawShape shape = shapeUnknown;
+// int Console::ProcessCommand(const char *command)
+// {
+//     //auto commandString = String(command);
+//     int cmdLength = strlen(command);
+//     Serial.print("Received command line: "); Serial.println(command);
+//     char cmd[64];
+//     char args[240];
+//     bool drawCommand = false;
+//     DrawShape shape = shapeUnknown;
     
     
-    _commandViewIdx = _history.index();
-    _commandViewIdx = _history.addEntry(command);
+//     _commandViewIdx = _history.index();
+//     _commandViewIdx = _history.addEntry(command);
     
-    memset(cmd, 0 , sizeof(cmd));
-    memset(args, 0 , sizeof(args));
+//     memset(cmd, 0 , sizeof(cmd));
+//     memset(args, 0 , sizeof(args));
     
-    for (int idx = 0; idx < cmdLength;idx++){
-        if(command[idx] == ' ' || command[idx] == '\0'){
-            cmdLength = idx+1;
-            break;
-        }        
-    }
-    memcpy(cmd,command, cmdLength);
-    memcpy(args,command + cmdLength, strlen(command) - cmdLength);
-    Serial.print("Processing command "); Serial.print(cmd); 
-    if(strlen(args) > 0){
-        Serial.print(" with args "); Serial.print(args);
-    }
-    Serial.println();
+//     for (int idx = 0; idx < cmdLength;idx++){
+//         if(command[idx] == ' ' || command[idx] == '\0'){
+//             cmdLength = idx;
+//             break;
+//         }        
+//     }
+//     memcpy(cmd,command, cmdLength);
+//     memcpy(args,command + cmdLength + 1, strlen(command) - cmdLength);
+//     Serial.print("Processing command "); Serial.print(cmd); 
+//     if(strlen(args) > 0){
+//         Serial.print(" with args "); Serial.print(args);
+//     }
+//     Serial.println();
 
-    int coords[6];
-    int coordsLength = 0;
-    //"executable" is first word
-    //TODO: crate table of commands with string representation to match and pointer to function
-    if(strncasecmp(cmd,"clear", cmdLength - 1) == 0){
-        clear();
-        SetPosition(0);
-        return 0;
-    } 
-    else if(strncasecmp(cmd,"cd", cmdLength - 1) == 0){
-        if(strncasecmp("../", args, 4) == 0 ||  strncasecmp("..", args, 3) == 0 ){
-            //go up one dir
-            if(_path.lastIndexOf('/') > 0)                
-                _path = _path.substring(0,_path.lastIndexOf('/') - 1);
-            else
-                _path = "/";
-        }
-        else if(SD.exists(args)){
-            File f = SD.open(args);
-            _path = "/";
-            _path +=  f.name();
-            f.close();
-        }
-            
-        else{
-            print("Invalid path provided: "); println(args);
-        }
-
-    }
-    else if(strncasecmp(cmd,"ls", cmdLength - 1) == 0){
-       //check if we are in sd volume
-       AdvanceCursor(true);
-       if(!_path.startsWith("/")){
-        
-        println("Cannot LS. Invalid path");
-        return 0;
-       }
-       _listFiles(strlen(args) > 0 ? args : _path.c_str(), true,0);
-    }
-    else if(strncasecmp(cmd,"cat", cmdLength - 1) == 0){
-        //check if we are in sd volume
-        _commandMode = false;
-        AdvanceCursor(true);
-        File f = SD.open(_path + "/" + args);
-        if(f){
-            uint8_t buffer[72];
-            int readBytes = 0;
-            while(true){
-                if(!f.available())
-                    break;
-                readBytes = f.readBytes(buffer,sizeof(buffer));
-                if(readBytes == 0)
-                    continue;
-                
-                write(buffer,readBytes);
-                AdvanceCursor(true);
-                
-            }
-            f.close();
-        }
-        _commandMode = true;
-       
-    }
-    else if(strncasecmp(cmd,"draw", cmdLength - 1) == 0){
-        //check if we are in sd volume
-        _commandMode = false;
-        AdvanceCursor(true);
-        Bitmap img;
-        img.drawFile((_path + "/" + args).c_str(), 0, 0);
-           // while(Serial.read()); //wait for any key
-        
-        
-        // File f = SD.open(_path + "/" + args);
-        // if(f){
-        //     uint8_t buffer[graphics.settings.screenWidth];
-        //     int readBytes = 0;
-        //     uint32_t length = 0;
-        //     while(true){
-        //         if(!f.available())
-        //             break;
-        //         readBytes = f.readBytes(buffer,sizeof(buffer));
-        //         if(readBytes == 0)
-        //             continue;                
-        //         uint32_t xCoord = length % graphics.settings.screenWidth;
-        //         uint32_t yCoord = (length - xCoord) / graphics.settings.screenHeight;
-                
-        //         graphics.WriteBytes(
-        //             (yCoord << graphics.settings.horizontalBits) + xCoord,
-        //             buffer,readBytes
-        //         );
-        //         length += readBytes;
-        //         //write(buffer,sizeof(buffer));
-                
-                
-        //     }
-        //     f.close();
-        // }
-       
-        _commandMode = true;
-
-        AdvanceCursor(true);
-    }
-    else if(strncasecmp(cmd,"line", cmdLength - 1)  == 0){
-        
-        shape = shapeLine;
-        coordsLength = getCoords(command,coords, cmdLength);
-        if(coordsLength == 4)
-            drawCommand = true;
-
-
-    }
-    else if(strncasecmp(cmd,"triangle", cmdLength - 1)  == 0){
-        shape = shapeTriangle;
-
-        coordsLength = getCoords(command,coords, cmdLength);
-        if(coordsLength == 6)
-             drawCommand = true;
-
-    }
-    else if(strncasecmp(cmd,"rectangle", cmdLength - 1)  == 0){
-        shape = shapeRectangle;
-
-        coordsLength = getCoords(command,coords, cmdLength);
-        if(coordsLength == 4)
-            drawCommand = true;
-
-    }
-    else if(strncasecmp(cmd,"print", cmdLength - 1) == 0){
-        graphics.drawText(_cursorX, _cursorY, command + cmdLength, textColor, backgroundColor);
-
-    }
-    else if(strncasecmp(cmd,"run", cmdLength - 1) == 0){
-        RunProgram(command + cmdLength);
-
-    } else {
-        char buf[348];
-        sprintf(buf,"Unknown command: %s", command);
-        _echoPrompt = false;       
-        AdvanceCursor(true);
-        _echoPrompt = true;
-        graphics.drawText(_cursorX, _cursorY, buf, Color::RED);
-        
-    }
-    if(drawCommand){
-        
-        switch (shape)
-        {
-        case shapeLine:
-            Serial.println("Drawing line");
-            graphics.drawLine(coords[0], coords[1], coords[2], coords[3],textColor);
-            
-            break;
-        case shapeTriangle:
-            Serial.println("Drawing triangle");
-            graphics.drawTriangle(coords[0], coords[1], coords[2], coords[3], coords[4], coords[5],textColor);
-            
-            break;
-        
-        case shapeRectangle:       
-            Serial.println("Drawing rectangle   "); 
-            graphics.drawRectangle(coords[0], coords[1], coords[2], coords[3],textColor);
-            break;
-        
-        default:
-            Serial.println("Shape not implemented");
-            break;
-        }
-    }
-
-    AdvanceCursor();
-    return 0;
-}
+   
+//     return 0;
+// }
 
 size_t Console::print(const char* str)
 {

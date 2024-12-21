@@ -1,7 +1,7 @@
 #ifndef SCREEN_SAVER_H
 #define SCREEN_SAVER_H
-#include "SRAM/SRAM.h"
-#include "SRAM/VRAM.h"
+#include "../lib/DueHardwareVGA/src/hw/video/SRAM.h"
+#include "../lib/DueHardwareVGA/src/hw/video/VRAM.h"
 extern VRAM graphics;
 #define MAX_COLLISSIONS 500
 

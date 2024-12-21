@@ -5,13 +5,12 @@
 
 // #define DEBUG	1
 // #define VERIFY 1
-#include "Console.hpp"
-#include "Editor.hpp"
-#include "Color.h"
-#include "SRAM/VRAM.h"
+#include "Console/Console.hpp"
+#include "Editor/Editor.hpp"
 #include "Screensaver.h"
 #include "ScreensaverMandelbrot.h"
 extern SRAM programmer;
+extern VRAM graphics;
 extern ProgramRom programRom;
 extern Console console;
 extern Editor editor;
@@ -21,7 +20,7 @@ extern Editor editor;
 extern USBHost usb;
 
 // Attach keyboard controller to USB
-extern KeyboardController keyboard;
+//extern KeyboardController keyboard;
 
 
 
@@ -32,7 +31,7 @@ public:
 	UI();
 	~UI();
 
-
+    void begin();
 	
 	void blinkLED();
 
@@ -57,7 +56,11 @@ private:
 	unsigned long lastToggle = 0;
 	unsigned long toggleDuration = 500;
 	bool needPrintMenu = true;
-	//uint8_t chipCount = 2;
+	
+    unsigned long updateFrequency = 1000;
+    unsigned long lastUpdated = 0;
+    unsigned long checkingTime = 0;
 
 };
 #endif
+extern UI ui;

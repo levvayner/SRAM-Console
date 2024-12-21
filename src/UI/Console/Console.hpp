@@ -4,17 +4,12 @@
 #include "Arduino.h"
 
 #include "Color.h"
-#include "Chars.h"
-#include "SRAM/SRAM.h"
-#include "SRAM/VRAM.h"
-#include "Keys.h"
+#include "DueHardwareVGA.h"
 #include "Programming/ProgramRom.h"
 #include "KeyboardController.h"
-#include "IO/ps2KeyboardController.h"
-#include "Code/Execution.h"
 #include "CommandHistory.h"
-#include "Bitmap.h"
 #include "DueFlashStorage.h"
+
 
 
 /*
@@ -43,10 +38,19 @@ extern VRAM graphics;
 extern ProgramRom programRom;
 extern KeyboardController keyboardUsb;
 extern ps2KeyboardController ps2Controller;
+
+union ScratchArea{
+    byte bytes[256];
+    char text[256];
+};
+
 class Console : Print{
 
     public:
     void run(bool blocking = true);
+    void stop();
+    inline String * path(){ return &_path;}
+    inline void setPath(const char* path){ _path = path;}
     virtual size_t write(uint8_t data, byte color, byte backgroundColor, bool clearBackround = false, bool useFrameBuffer = false);
     virtual size_t write(uint8_t data, Color color, Color backgroundColor, bool clearBackround = false, bool useFrameBuffer = false);
     virtual size_t write(uint8_t data, bool useFrameBuffer);
@@ -88,16 +92,22 @@ class Console : Print{
     size_t println(const Printable&);
     size_t println(void);
 
-    virtual inline void clear(){ programmer.Erase(0, (_windowHeight + 1) << graphics.settings.horizontalBits);}
+    virtual inline void clear(){ programmer.Erase(0, (graphics.settings.screenHeight + 1) << graphics.settings.horizontalBits);}
     virtual inline void clearData(){ programmer.Erase(1<<19, graphics.settings.screenBufferHeight * (graphics.settings.screenWidth/graphics.settings.charWidth));}
 
+    int getCoords(const char* str, int * coords, int offset = 0);
+
+    void processKey(uint8_t keyCode);
+
     virtual inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ _cursorX = x; _cursorY = y; }
+    virtual inline byte GetColor(){return textColor; }
+    virtual inline byte GetBackgroundColor(){return backgroundColor; }
     virtual inline void SetColor(byte color){ textColor = color;}
     virtual inline void SetColor(Color color){ textColor = color.ToByte();}
     virtual inline void SetBackgroundColor(byte color){  backgroundColor = color;}
     virtual inline void SetBackgroundColor(Color color){ backgroundColor = color.ToByte();}
-    virtual void processUSBKey(); //
-    virtual ConsoleKeyAction processPS2Key(uint8_t ps2KeyCode); //
+    //virtual void processUSBKey(); //
+    //virtual ConsoleKeyType processPS2Key(uint8_t ps2KeyCode); //
     inline bool IsConsoleRunning(){ return _consoleRunning;}
 
     /// @brief Advances cursor in console.
@@ -117,15 +127,16 @@ class Console : Print{
     virtual inline Point GetPosition(){
         return Point(_cursorX, _cursorY);
     }
-    int RunProgram(const char* programName);
+    //int RunProgram(const char* programName);
 
-    protected: 
-    
-    
     /// @brief Calculates the array offset for current position
     /// number of chars across the screen * number of rows above current + ( x position / char width)
     /// @return Returns the offset in the data array for the current character 
     virtual inline uint16_t GetDataPos(){ return ((_cursorY / graphics.settings.charHeight) + _scrollOffset) * ((graphics.settings.screenWidth / graphics.settings.charWidth))+ (_cursorX / graphics.settings.charWidth);}
+    
+    protected: 
+    
+    
     
     
 
@@ -146,16 +157,19 @@ class Console : Print{
     inline void SetWindowHeight(int height){ _windowHeight = height;}
     void DrawCursor();
     void EraseCursor();
+    inline uint32_t LastIdx(){
+        return _lastIdx;
+    }
 
     int getCurrentLineNumber(){
         return _scrollOffset + _cursorY / graphics.settings.charHeight;
     }
     
 
-    int ProcessCommand(const char* command);
+   // int ProcessCommand(const char* command);
 
     template< typename T>
-    ConsoleKeyAction checkPort(T &port)
+    ConsoleKeyType checkPort(T &port)
     {
         byte chr=0;
         bool writable = true;
@@ -185,7 +199,7 @@ class Console : Print{
                         case 0x51: //F2
                         {
                             textColor++; 
-                            return ConsoleKeyAction::ColorChange;                         
+                            return ConsoleKeyType::ColorChange;                         
                         }
                             
                         case 0x53: //F4
@@ -227,27 +241,27 @@ class Console : Print{
                             
                         case 0x7E: //delete, should have been preceeded by 0x33
                             Serial.println("Pressed delete");
-                            return ConsoleKeyAction::Cursor ;
+                            return Cursor ;
                         case 0x41: //up arrow
                             //Serial.println("Pressed up arrow");
                             EraseCursor();
                             MoveCursorUp();
-                            return ConsoleKeyAction::Cursor;
+                            return Cursor;
                         case 0x42: //down arrow
                             //Serial.println("Pressed down arrow");
                             EraseCursor();
                             MoveCursorDown();
-                            return ConsoleKeyAction::Cursor;         
+                            return Cursor;         
                         case 0x43: //right arrow                    
                             //Serial.println("Pressed right arrow");
                             EraseCursor();
                             MoveCursorRight();
-                            return ConsoleKeyAction::Cursor;
+                            return Cursor;
                         case 0x44: //left arrow
                             //Serial.println("Pressed left arrow");
                             EraseCursor();
                             MoveCursorLeft();
-                            return ConsoleKeyAction::Cursor;
+                            return Cursor;
                         case 0x46: //end
                             break;
                         case 0x48: //home
@@ -261,11 +275,12 @@ class Console : Print{
                     //Serial.print("Backspace char 1..");
                     nextChar = port.read();
                     if(nextChar == 0x8){ //backspace
-                        if((!this->IsConsoleRunning() || !_echoPrompt ) || _cursorX > _promptLength * graphics.settings.charWidth){
+                        if(!_echoPrompt || _cursorX > _promptLength * graphics.settings.charWidth){
+                         
                             EraseCursor();
                             //_printChar(0, _cursorX, _cursorY); // get rid of cursor
                             ReverseCursor();
-                            return ConsoleKeyAction::Cursor;
+                            return Cursor;
                         }
                         //_printChar(0, _cursorX, _cursorY);
                     }
@@ -274,24 +289,27 @@ class Console : Print{
                 }
             }
             
-            if(chr == 0x8){                
-                EraseCursor();
-                //_printChar(0, _cursorX, _cursorY); // get rid of cursor
-                ReverseCursor();
-                graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, Color::BLACK);
-                //_printChar(0, _cursorX, _cursorY); // get rid of last char
-                return ConsoleKeyAction::Cursor;
+            if(chr == 0x8){     
+                if((_echoPrompt && (echoY != _cursorY || _cursorX > (_promptLength * graphics.settings.charWidth)) ) || (!_echoPrompt) ){        
+                          
+                    EraseCursor();
+                    //_printChar(0, _cursorX, _cursorY); // get rid of cursor
+                    ReverseCursor();
+                    graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, Color::BLACK);
+                    //_printChar(0, _cursorX, _cursorY); // get rid of last char
+                }
+                return Cursor;
             }
             
             if(chr == 18){ //ctrl + r
                 _consoleRunning = false;
-                return ConsoleKeyAction::Exit;
+                return Exit;
             }
                 
                 
             if(writable) {                
                 write(chr);
-                return ConsoleKeyAction::ASCII;
+                return ASCII;
             }        
             
         }
@@ -301,18 +319,18 @@ class Console : Print{
     private:
     void _drawTextFromRam();
     void _drawEcho();
-    void _processKey(char keyVal);
+    //void _processKey(char keyVal);
     void _initSD();
     void _listFiles(const char * path, bool recursive = true, int indent = 0, uint8_t flags = LS_DATE | LS_SIZE);
 
-    int getCoords(const char* str, int * coords, int offset = 0);
+    
 
 
     private:    
     
     bool _consoleRunning = false; 
     bool _commandMode = false;   
-    byte _scratch[256];
+    ScratchArea _scratch;
     uint16_t _lastIdx = 0;
     
     uint16_t _windowHeight = 240;
@@ -320,6 +338,7 @@ class Console : Print{
     String _path = "/";
     uint16_t _promptLength = 5;
     bool _echoPrompt = true;
+    int16_t echoY = 0;
     uint16_t _consoleLine = 0;
     CommandHistory _history;
     uint8_t _commandViewIdx = 0;
@@ -328,8 +347,6 @@ class Console : Print{
     Sd2Card card;
     SdVolume volume;
     SdFile root;
-    
-    DueFlashStorage dueFlashStorage;
 };
 
 #endif

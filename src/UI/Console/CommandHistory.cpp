@@ -8,7 +8,7 @@ CommandHistory::~CommandHistory()
 {
     // for(int idx = 0; idx < COMMANDS_TO_KEEP;idx++)
     // {
-    delete[] _commandAddresses;
+    //delete _commandAddresses;
     //}
 }
 

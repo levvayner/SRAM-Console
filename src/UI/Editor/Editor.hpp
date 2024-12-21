@@ -1,14 +1,9 @@
 #ifndef _EDITOR_H
 #define _EDITOR_H
 #include "Arduino.h"
-#include "Color.h"
-#include "Chars.h"
-#include "Console.hpp"
-#include "SRAM/SRAM.h"
-#include "SRAM/VRAM.h"
+#include "../Console/Console.hpp"
 #include "Programming/ProgramRom.h"
 #include "KeyboardController.h"
-#include "IO/ps2KeyboardController.h"
 
 /*
 Editor has two primary responsibilities
@@ -36,6 +31,8 @@ class Editor : public Console{
     public:
 
     void run();
+    void open(const char* filename);
+    bool save();
     virtual inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ Console::SetPosition(x,y); if(drawPosition && _isEditorRunning) {_drawCursorPosition();}}
     //virtual ConsoleKeyPress processPS2Key(uint8_t ps2KeyCode);
 
@@ -47,29 +44,18 @@ class Editor : public Console{
     protected: 
     
     void DrawStatusBar();
-    
-    
-
-    //bool MoveCursorUp();
-    
-    // bool MoveCursorRight();
-    // bool MoveCursorLeft();
-  
-    
-
     private:
 
     
     void _drawCursorPosition();
     void _drawLineNo();
     void _drawColor();
+    void _drawFilename();
 
     private: 
     bool _isEditorRunning;
-
-    // void _processKey(char keyVal);
-    // template< typename T>
-    // void _checkPort(T & port);
+    char* _fileName = nullptr;
+    bool _isNewFile = false;
 };
 
 #endif
