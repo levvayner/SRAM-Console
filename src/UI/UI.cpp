@@ -1,6 +1,20 @@
 
 #include "UI.h"
 UI ui;
+
+char cmdBuf[256];
+uint16_t cmdBufIdx = 0;
+bool commandReady = false;
+void uiProcessKey(uint8_t data){
+    //Serial.print("Received key 0x"); Serial.println(data, HEX);
+    if(data == 13) return; //ignore carriage return, new line advances to beginning of line
+    if(data == 10){
+        commandReady = true;
+    }
+    
+    cmdBuf[cmdBufIdx++] = data;    
+}
+
 #define UI_SOURCE "UI"
 void readMemory(commandRequest request){
     
@@ -90,31 +104,30 @@ void drawVerticalLines(commandRequest request){
 void showScreenSaver(commandRequest request){
     //screenSaver
     ScreenSaver saver;
+    console.HideCursor();
     //char c = '\0';
     saver.start();
-    keyboard.SetMode(false);
+    //keyboard.SetMode(false);
     while(true){
         saver.step();
-        if(keyboard.available(request.source) > 0){
-            Serial.print("Found keys available: "); Serial.println(keyboard.available(request.source));
-            String input = keyboard.getInput(request.source);
-        
-            if(input.equals("quit")){
-                graphics.clear();            
-                break;
-            }
+        char key = keyboard.getKey();
+            
+        if(key == 'q' || key == 'Q'){
+            graphics.clear();            
+            break;
         }
-    }
         
-    keyboard.SetMode(true); 
+    }
+    console.HideCursor();
+    //keyboard.SetMode(true); 
     ui.PrintMenu();   
 }
 
 void drawBlocks(commandRequest request){
-    int blockWidth = ceil(graphics.settings.screenWidth / 16); //rather push off screen a bit
-    int blockHeight = ceil((graphics.settings.screenHeight - 14) / 16);
+    int blockWidth = floor(graphics.settings.screenWidth / 16); //rather push off screen a bit
+    int blockHeight = ceil((graphics.settings.screenHeight - 12) / 16);
     //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
-    graphics.clear(0,260,graphics.settings.screenWidth, graphics.settings.screenHeight - 260);
+    graphics.clear(0,0,graphics.settings.screenWidth, graphics.settings.screenHeight);
     byte color = 0xFF;
     //byte colors[blockWidth];
     char label[4];
@@ -137,13 +150,13 @@ void drawBlocks(commandRequest request){
     //graphics.render();
     Serial.print(F("Blocks : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
     
-    console.SetPosition(3, graphics.settings.screenHeight - 9, false);
+    console.SetPosition(3, graphics.settings.screenHeight - 9);
     console.write("8 ", 2,Color::RED, true);
     console.write("b", 1,Color::GREEN, true);
     console.write("i", 1,Color::GOLD, true);
     console.write("t", 1,Color::BLUE, true);
 
-    console.SetPosition(70, graphics.settings.screenHeight - 9, false);
+    console.SetPosition(70, graphics.settings.screenHeight - 9);
     console.write("256 Available Colors", 20,Color::WHITE, true);
 }
 
@@ -267,31 +280,31 @@ void graphicsTest(commandRequest request){
     Serial.print(". "); Serial.print(foStartTime); Serial.println(" ms");
 
     graphics.clear();
-    console.SetCommandMode(false);
+    console.SetEchoMode(false);
     console.SetPosition(0,0);
-    sprintf(buf,"Drawing %i lines:      % 5lu ms", numOfObjects, dlStartTime);
+    sprintf(buf,"Drawing %i lines:      %05lu ms", numOfObjects, dlStartTime);
     console.println(buf);
-    sprintf(buf,"Drawing %i triangles:  % 5lu ms", numOfObjects, dtStartTime);
+    sprintf(buf,"Drawing %i triangles:  %05lu ms", numOfObjects, dtStartTime);
     console.println(buf);
-    sprintf(buf,"Drawing %i rectangles: % 5lu ms", numOfObjects, drStartTime);
+    sprintf(buf,"Drawing %i rectangles: %05lu ms", numOfObjects, drStartTime);
     console.println(buf);
-    sprintf(buf,"Drawing %i circles:    % 5lu ms", numOfObjects, dcStartTime);
+    sprintf(buf,"Drawing %i circles:    %05lu ms", numOfObjects, dcStartTime);
     console.println(buf);
-    sprintf(buf,"Drawing %i ovals:      % 5lu ms", numOfObjects, doStartTime);
+    sprintf(buf,"Drawing %i ovals:      %05lu ms", numOfObjects, doStartTime);
     console.println(buf);
-    sprintf(buf,"Filling %i triangles:  % 5lu ms", numOfObjects, ftStartTime);
+    sprintf(buf,"Filling %i triangles:  %05lu ms", numOfObjects, ftStartTime);
     console.println(buf);
-    sprintf(buf,"Filling %i rectangles: % 5lu ms", numOfObjects, frStartTime);
+    sprintf(buf,"Filling %i rectangles: %05lu ms", numOfObjects, frStartTime);
     console.println(buf);
-    sprintf(buf,"Filling %i circles:    % 5lu ms", numOfObjects, fcStartTime);
+    sprintf(buf,"Filling %i circles:    %05lu ms", numOfObjects, fcStartTime);
     console.println(buf);
-    sprintf(buf,"Filling %i ovals:      % 5lu ms", numOfObjects, foStartTime);
+    sprintf(buf,"Filling %i ovals:      %05lu ms", numOfObjects, foStartTime);
     console.println(buf);
 
     unsigned long totalTime = dlStartTime + dtStartTime + drStartTime + dcStartTime + doStartTime + ftStartTime + frStartTime + fcStartTime + foStartTime;
     sprintf(buf, "--------------------------------");
     console.println(buf);
-    sprintf(buf,"Total rendering time:   % 5lu ms", totalTime);
+    sprintf(buf,"Total rendering time:   %05lu ms", totalTime);
     console.println(buf);
     if(totalTime >  4000){
         sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are farming a potato!");
@@ -306,7 +319,7 @@ void graphicsTest(commandRequest request){
 
     
     console.println(buf);
-    console.SetCommandMode(true);
+    console.SetEchoMode(true);
 
 }
 
@@ -353,6 +366,7 @@ void UI::begin()
     commands.registerCommand(UI_SOURCE,"console","", runConsole);
     commands.registerCommand(UI_SOURCE,"edit","", runEditor);
     commands.registerCommand(UI_SOURCE,"help","", showHelp);
+    keyboard.onKeyDown = uiProcessKey;
     
 }
 
@@ -479,11 +493,23 @@ void UI::ClearScreen()
 }
 
 void UI::ProcessInput() {
-    checkingTime = millis();
-    if(checkingTime  - lastUpdated >= updateFrequency){        
-        keyboard.onTick();
-        lastUpdated = checkingTime;
+    if(commandReady){
+        //Serial.print("Receieved command: "); Serial.println(cmdBuf);
+        //check if registered command
+        auto command = commands.buildCommand(cmdBuf);
+        if(command.valid){
+            command.onExecute(command);
+        }
+
+        memset(cmdBuf,0,sizeof(cmdBuf));
+        cmdBufIdx = 0;
+        commandReady = false;
     }
+    // checkingTime = millis();
+    // if(checkingTime  - lastUpdated >= updateFrequency){        
+    //     keyboard.onTick();
+    //     lastUpdated = checkingTime;
+    // }
 }
 
 

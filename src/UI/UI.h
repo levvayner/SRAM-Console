@@ -57,7 +57,7 @@ private:
 	unsigned long toggleDuration = 500;
 	bool needPrintMenu = true;
 	
-    unsigned long updateFrequency = 1000;
+    unsigned long updateFrequency = 200;
     unsigned long lastUpdated = 0;
     unsigned long checkingTime = 0;
 

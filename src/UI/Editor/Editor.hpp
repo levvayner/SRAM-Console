@@ -31,8 +31,9 @@ class Editor : public Console{
     public:
 
     void run();
-    void open(const char* filename);
+    bool open(const char* filename);
     bool save();
+    void stop();
     virtual inline void SetPosition(int x = 0, int y = 0, bool drawPosition = true){ Console::SetPosition(x,y); if(drawPosition && _isEditorRunning) {_drawCursorPosition();}}
     //virtual ConsoleKeyPress processPS2Key(uint8_t ps2KeyCode);
 
@@ -40,10 +41,14 @@ class Editor : public Console{
     bool ReverseCursor();
     bool MoveCursorDown();
     bool MoveCursorUp();
+    inline bool IsEditorRunning(){ return _isEditorRunning;}
+
+    void processKey(uint8_t keyCode);
 
     protected: 
     
     void DrawStatusBar();
+    
     private:
 
     
@@ -56,6 +61,7 @@ class Editor : public Console{
     bool _isEditorRunning;
     char* _fileName = nullptr;
     bool _isNewFile = false;
+    KeyInputMode _currentInputMode;
 };
 
 #endif

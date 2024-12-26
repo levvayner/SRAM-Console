@@ -8,8 +8,7 @@
 
 
 SRAM programmer;
-VRAM graphics;
-ProgramRom programRom = ProgramRom();
+ProgramRom programRom;
 Console console;
 Editor editor;
 USBHost usb;
@@ -24,7 +23,7 @@ void setup() {
     graphics.begin();
     pinMode(PIN_LED, OUTPUT);
     
-    keyboard.begin();   
+    keyboard.begin(Serial,50);   
     //ps2Controller.begin();
 
 	digitalWrite(PIN_LED, LOW);
@@ -42,4 +41,9 @@ void setup() {
 void loop() {    
     ui.PrintMenu();
 	ui.ProcessInput();
+    if(console.IsConsoleRunning())
+        console.loop();
+
+    if(editor.IsEditorRunning())
+        editor.loop();
 }
