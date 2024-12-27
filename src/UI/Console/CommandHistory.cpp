@@ -6,10 +6,6 @@ CommandHistory::CommandHistory()
 
 CommandHistory::~CommandHistory()
 {
-    // for(int idx = 0; idx < COMMANDS_TO_KEEP;idx++)
-    // {
-    //delete _commandAddresses;
-    //}
 }
 
 int CommandHistory::addEntry(const char * data)

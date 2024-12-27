@@ -83,10 +83,11 @@ class Console : Print{
     size_t print(char);
     size_t print(unsigned char, int = DEC);
     size_t print(int, int = DEC);
-    size_t print(unsigned int, int = DEC);
+    size_t print(unsigned int i, int = DEC);
     size_t print(long, int = DEC);
     size_t print(unsigned long num, int base = DEC);
-    size_t print(double, int = 2);
+    size_t print(unsigned long long num, int base = DEC);
+    size_t print(double d, int = 2);
     size_t print(const Printable&);
 
     size_t println(const __FlashStringHelper *);

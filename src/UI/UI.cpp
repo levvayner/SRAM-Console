@@ -122,6 +122,21 @@ void showScreenSaver(commandRequest request){
     //keyboard.SetMode(true); 
     ui.PrintMenu();   
 }
+void setGraphicsRenderMode(commandRequest request){
+    
+    //String addrS = _getResponse(port);
+    if(strlen(request.args) <= 0){
+        console.println("Usage: graphics [MODE]    where MODE is 1 - 4 for safe to volatile rendering");
+        return;
+    }
+    int mode = atoi(request.args);
+    if(mode > 0 && mode <= 4){        
+        graphics.SetRenderMode((BusyType)mode);
+    }
+    else {
+        Serial.print("Unkown graphics mode: "); Serial.println(mode);
+    }    
+}
 
 void drawBlocks(commandRequest request){
     int blockWidth = floor(graphics.settings.screenWidth / 16); //rather push off screen a bit
@@ -282,23 +297,23 @@ void graphicsTest(commandRequest request){
     graphics.clear();
     console.SetEchoMode(false);
     console.SetPosition(0,0);
-    sprintf(buf,"Drawing %i lines:      %05lu ms", numOfObjects, dlStartTime);
-    console.println(buf);
-    sprintf(buf,"Drawing %i triangles:  %05lu ms", numOfObjects, dtStartTime);
-    console.println(buf);
-    sprintf(buf,"Drawing %i rectangles: %05lu ms", numOfObjects, drStartTime);
-    console.println(buf);
-    sprintf(buf,"Drawing %i circles:    %05lu ms", numOfObjects, dcStartTime);
-    console.println(buf);
-    sprintf(buf,"Drawing %i ovals:      %05lu ms", numOfObjects, doStartTime);
-    console.println(buf);
-    sprintf(buf,"Filling %i triangles:  %05lu ms", numOfObjects, ftStartTime);
-    console.println(buf);
-    sprintf(buf,"Filling %i rectangles: %05lu ms", numOfObjects, frStartTime);
-    console.println(buf);
-    sprintf(buf,"Filling %i circles:    %05lu ms", numOfObjects, fcStartTime);
-    console.println(buf);
-    sprintf(buf,"Filling %i ovals:      %05lu ms", numOfObjects, foStartTime);
+    sprintf(buf,"Drawing %i lines:      % 5lu ms", numOfObjects, dlStartTime);
+    console.println(buf); 
+    sprintf(buf,"Drawing %i triangles:  % 5lu ms", numOfObjects, dtStartTime);
+    console.println(buf); 
+    sprintf(buf,"Drawing %i rectangles: % 5lu ms", numOfObjects, drStartTime);
+    console.println(buf); 
+    sprintf(buf,"Drawing %i circles:    % 5lu ms", numOfObjects, dcStartTime);
+    console.println(buf); 
+    sprintf(buf,"Drawing %i ovals:      % 5lu ms", numOfObjects, doStartTime);
+    console.println(buf); 
+    sprintf(buf,"Filling %i triangles:  % 5lu ms", numOfObjects, ftStartTime);
+    console.println(buf); 
+    sprintf(buf,"Filling %i rectangles: % 5lu ms", numOfObjects, frStartTime);
+    console.println(buf); 
+    sprintf(buf,"Filling %i circles:    % 5lu ms", numOfObjects, fcStartTime);
+    console.println(buf); 
+    sprintf(buf,"Filling %i ovals:      % 5lu ms", numOfObjects, foStartTime);
     console.println(buf);
 
     unsigned long totalTime = dlStartTime + dtStartTime + drStartTime + dcStartTime + doStartTime + ftStartTime + frStartTime + fcStartTime + foStartTime;
@@ -365,6 +380,7 @@ void UI::begin()
     commands.registerCommand(UI_SOURCE,"test","", graphicsTest);
     commands.registerCommand(UI_SOURCE,"console","", runConsole);
     commands.registerCommand(UI_SOURCE,"edit","", runEditor);
+    commands.registerCommand(UI_SOURCE,"graphics","", setGraphicsRenderMode);
     commands.registerCommand(UI_SOURCE,"help","", showHelp);
     keyboard.onKeyDown = uiProcessKey;
     
@@ -382,7 +398,7 @@ void UI::blinkLED() {
 
 void UI::PrintMenu() {
 	if (!needPrintMenu) return; 
-    Serial.println(F("VGA TOOL   -   v 0.0.1"));
+    Serial.println(F("VGA TOOL   -   v 0.1.1"));
 	Serial.println(F("--------------------------------"));
 	Serial.println(F("Press r to read"));
 	Serial.println(F("Press w to write"));
@@ -398,14 +414,21 @@ void UI::PrintMenu() {
 	Serial.println(F("--------------------------------"));
 
     console.SetPosition();
-    console.println("VGA TOOL   -   v 0.0.1");
+    console.println("VGA TOOL   -   v 0.1.1");
 	console.println("---------------------------------");
 	console.println("SRAM: ");
-    console.println(" r - read   w - write   p - print");
-    console.println(" s - store  e - erase ");
+    console.println(" read    write   print");
+    console.println(" server        - upload data from computer");
+    console.println(" clear         - erase ");
+    console.println("--------------------------------");
     console.println("Graphics: ");
-    console.println(" b- blocks  v/l - lines  g -test");
-    console.println("Aps: i - editor");
+    console.println("blocks         - draw blocks");
+    console.println("lines          - horizontal lines");
+    console.println("vert           - vertical lines");
+    console.println("test           - run graphics test");
+    console.println("--------------------------------");
+    console.println("Aps: edit      - Editor");
+    console.println("Aps: console   - Console");
 	console.println("--------------------------------");
 
 	needPrintMenu = false;

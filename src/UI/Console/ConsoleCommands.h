@@ -1,10 +1,13 @@
 #include "Console.hpp"
 #include "../Editor/Editor.hpp"
+#include "UI/UI.h"
 #define CONTEXT_CONSOLE "console"
 extern Console console;
 extern Editor editor;
+extern UI ui;
 DueFlashStorage dueFlashStorage;
-void listFiles(const char * path, bool recursive, int indent,  char*  flags);
+void listFiles(const char * path, int indent,  char*  flags);
+int endsWith(const char *str, const char *suffix);
 
 void clear(commandRequest request){
     console.EraseCursor();
@@ -15,7 +18,7 @@ void clear(commandRequest request){
 }
 
 void cd(commandRequest request){
-    console.AdvanceCursor(true);
+    //console.AdvanceCursor(true);
     String args = request.args;
     String pathToOpen = args;
     char buf[128];
@@ -100,7 +103,7 @@ void ls(commandRequest request){
         return;
     }
     
-    listFiles(strlen(request.args) > 0 ? request.args : console.path().c_str(), true, 0, request.flags);
+    listFiles(strlen(request.args) > 0 ? request.args : console.path().c_str(), 0, request.flags);
     console.SetEchoMode(true); 
 }
 
@@ -145,6 +148,23 @@ void rm(commandRequest request){
 }
 
 void rmdir(commandRequest request){
+    console.print("Are you sure you want to delete "); console.print(request.args); console.println("?");
+    console.print("Y/n");
+    while(true)
+    {
+        char k = keyboard.getKey();
+        if(k == 0) continue;
+        if(k == 'Y' || k == 'y'){
+            Serial.print("Delete yes");
+            return;
+        } 
+        if(k == 'N' || k == 'n'){
+            Serial.print("Delete no");
+            return;
+        } 
+
+
+    }
 
 }
 
@@ -167,7 +187,7 @@ void paint(commandRequest request){
 }
 
 void edit(commandRequest request){
-    console.AdvanceCursor(true);
+    //console.AdvanceCursor(true);
     if(!SD.exists(request.args)){        
         //println("Cannot Edit. Invalid path");
         console.println("Creating new file");
@@ -224,7 +244,7 @@ void printHelp(commandRequest request){
     char buf[128] = {0};
     String text;
     console.SetEchoMode(false);
-    console.AdvanceCursor(true);
+    //console.AdvanceCursor(true);
     for(int idx = 0; idx < commands.commandCount(); idx++){
         auto cmd = commands.getCommand(idx);
         sprintf(buf,"%-*s%-10s%s%s", 10,cmd->name, cmd->context, strlen(cmd->flags) > 0 ? " - flags: " : "", cmd->flags);        
@@ -242,7 +262,7 @@ void runProgram(commandRequest request){
     String requestPath = request.args;
     requestPath.trim();
     //byte bufVerify[256];
-    console.print("Running ["); Serial.console(requestPath.c_str()); console.println("]");
+    console.print("Running ["); console.print(requestPath.c_str()); console.println("]");
     sprintf(filename, "%s%s%s", console.path().c_str(),  console.path().length()  == 1 ? "" : "/" , requestPath.c_str());
     if(!SD.exists((const char *)filename))
     {
@@ -274,12 +294,29 @@ void runProgram(commandRequest request){
 
 void commandExit(commandRequest request){
     console.stop();
+    ui.begin();
 
 }
+
+void dumpData(commandRequest request){
+    uint16_t pos = console.GetDataPos();
+    char nextChar = ' ';
+    if(pos <=  0) return;
+    Serial.println("Dumping data contents... ");
+    //     return;
+    for(int idx = 0; idx < pos;idx++){
+        
+        nextChar = programmer.ReadByte(1 << 19 | idx);
+        if((nextChar >= 32 && nextChar < 127) || nextChar == 10)
+            Serial.print(nextChar);
+    }
+    programmer.ReadByte(0x0); // unset bit 19 so screen accesses video ram
+}
+
 void registerConsoleCommands(){
     commands.registerCommand(CONTEXT_CONSOLE,"clear", "",clear);
     commands.registerCommand(CONTEXT_CONSOLE,"cd", "",cd);
-    commands.registerCommand(CONTEXT_CONSOLE,"ls", "l",ls);
+    commands.registerCommand(CONTEXT_CONSOLE,"ls", "lr",ls);
     commands.registerCommand(CONTEXT_CONSOLE,"df", "",df);
     commands.registerCommand(CONTEXT_CONSOLE,"cat", "",cat);
     commands.registerCommand(CONTEXT_CONSOLE,"rm", "",rm);
@@ -295,6 +332,7 @@ void registerConsoleCommands(){
     commands.registerCommand(CONTEXT_CONSOLE,"help", "",printHelp);
     commands.registerCommand(CONTEXT_CONSOLE,"run", "",runProgram);
     commands.registerCommand(CONTEXT_CONSOLE,"exit", "",commandExit);
+    commands.registerCommand(CONTEXT_CONSOLE, "dump", "", dumpData);
 
 }
 
@@ -302,42 +340,96 @@ void registerConsoleCommands(){
 char fileSize[32];
 char fileDate[32];
 ScratchArea _scratch;
-void listFiles(const char * path, bool recursive, int indent,  char*  flags)
+uint64_t size = 0;
+void listFiles(const char * path, int indent,  char*  flags)
 {
     File rootFile = SD.open(path);
+    bool longFormat = strchr(flags, 'l') != nullptr;
+    bool recursive = strchr(flags, 'r') != nullptr;
     if(!rootFile){
         return;
     }
     File entry;    
     while(true){
+        uint8_t fgColor = console.GetColor();
+        uint8_t color = fgColor;
         entry = rootFile.openNextFile();
+        
         if(!entry) break;
-        memset(_scratch.bytes, 0, sizeof(_scratch));
+        memset(_scratch.bytes, PS2_KEY_SPACE, sizeof(_scratch));
         memset(fileSize, 0, sizeof(fileSize));
-        if(entry.isDirectory())
-            sprintf(fileSize, "%s", "<dir>");
-        else
-            sprintf(fileSize, "%lu%s",  entry.size(), " bytes");
-        
-        sprintf(_scratch.text,"%s%*s %s", entry.name(), 20 - strlen(entry.name()), "", fileSize);
-
-        if(strstr("l",flags) != nullptr){
-            sprintf(_scratch.text, "%s%*s", _scratch.text, 20, "date here");
-        }
-        //write(_scratch.text);
-        auto pos = console.GetPosition();
-        programmer.WriteBytes(1 << 19 | console.GetDataPos(), _scratch.bytes, strlen(_scratch.text));
-        graphics.drawText(pos.x, pos.y, _scratch.text, console.GetColor(), console.GetBackgroundColor());
-        console.write(10,true);
-       
-        entry = entry.openNextFile();
-        
         if(entry.isDirectory()){
-            listFiles(entry.name(), recursive, indent + 1, flags);
+            sprintf(fileSize, "%s", "<dir>");
+            color = Color::YELLOW;
         }
+        else{
+            sprintf(fileSize, "%lu%s",  entry.size(), " bytes");            
+            size+= entry.size();
+            if(endsWith(entry.name(), ".BIN")){
+                color = Color::BRICK;
+            }
+        }
+        
+        
+        if(longFormat){
+            sprintf(_scratch.text,"%*s%s%*s%s%*s",indent*2,"", entry.name(), 20 - strlen(entry.name()), "", fileSize, 15 - strlen(fileSize), "");
+            sprintf(_scratch.text + strlen(_scratch.text), "%s", "date here");
+        } else{ //just the filename - short
+            sprintf(_scratch.text,"%s", entry.name());
+        }
+        
+        //write(_scratch.text);
+        //auto pos = console.GetPosition();
+        console.SetColor(color);
+        if(console.GetPosition().x + (strlen(_scratch.text) * graphics.settings.charWidth) > graphics.settings.screenWidth)
+            console.write(10); // if text would overflow, go to next line
+        console.write(_scratch.text);
+        console.SetColor(fgColor);
+        // programmer.WriteBytes(1 << 19 | console.GetDataPos(), _scratch.bytes, strlen(_scratch.text));
+        // graphics.drawText(pos.x, pos.y, _scratch.text, console.GetColor(), console.GetBackgroundColor());
+        if(longFormat || (entry.isDirectory() && recursive))
+            console.println();
+        else{
+            console.write("  ");
+        }
+        
+        if(entry.isDirectory() && recursive){
+            listFiles(entry.name(), indent + 1, flags);
+        }
+        entry = entry.openNextFile();
     }    
     entry.close();
     rootFile.close();
+    if(indent == 0){        
+        console.write(10);
+        
+        console.println("-----------------------------------------------------");
+        console.print("Total Size:     "); 
+        if(size > (1024*1024)){
+            console.print( (float)size / (float)(1024*1024)); 
+            console.print("MB");
+        }
+        else if(size > 1024){
+            console.print(size / (1024)); 
+            console.print(".");
+            console.print(size % (1024));
+            console.print("KB");
+        }
+        else{
+            console.print(size);
+            console.println(" bytes");
+        }
+        size = 0;
+    }
+}
 
-    
+int endsWith(const char *str, const char *suffix)
+{
+    if (!str || !suffix)
+        return 0;
+    size_t lenstr = strlen(str);
+    size_t lensuffix = strlen(suffix);
+    if (lensuffix >  lenstr)
+        return 0;
+    return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
 }

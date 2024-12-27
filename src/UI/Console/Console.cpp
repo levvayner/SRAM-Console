@@ -11,6 +11,7 @@ void consoleProcessKey(uint8_t data){
     
 }
 void consoleDrawCursor(){
+    //Serial.println("Console draw cursor");
     console.ToggleCursor();
     console.DrawCursor();
 }
@@ -116,6 +117,7 @@ void Console::loop()
         //Serial.print("Receieved command: "); Serial.println(cmdBuf);
         //check if registered command
         auto command = commands.buildCommand(_cmdBuf);
+        HideCursor();
         AdvanceCursor(true);
         if(command.valid){     
             command.onExecute(command);
@@ -123,7 +125,7 @@ void Console::loop()
             println("Invalid command");           
         }
         AdvanceCursor(true);
-
+        ShowCursor();
         memset(_cmdBuf,0,sizeof(_cmdBuf));
         _cmdBufIdx = 0;
         _commandReady = false;
@@ -154,38 +156,38 @@ void Console::_drawTextFromRam()
 {
     uint32_t pos = _scrollOffset * (charsPerLine);
     uint32_t endPos = min(_lastIdx, ((_windowHeight / graphics.settings.charHeight) * charsPerLine));
-    uint16_t startLine = _scrollOffset;
-    uint16_t endLine = _scrollOffset + (graphics.settings.screenHeight / graphics.settings.charHeight);
+    uint16_t startLine = 0;// _scrollOffset;
+    uint16_t endLine = /*_scrollOffset + */(graphics.settings.screenHeight / graphics.settings.charHeight);
     if(endPos < pos) return; // nothing to print
     
     //check how many bytes we can fit, updat end pos accordingly.
     char buf[charsPerLine + 1];
     byte colorBuf[charsPerLine];
-    //uint8_t lineBuf[graphics.settings.charHeight * graphics.settings.screenWidth];
+    uint8_t lineBuf[graphics.settings.charHeight * graphics.settings.screenWidth];
     bool consoleState = _consoleRunning;
     _consoleRunning = false;            
     clear();        
-    char textBuf[128];
-    sprintf(textBuf, "Drawing from position %u to %u on lines %d to %d",
-        pos, endPos, startLine, endLine 
-    );
-    Serial.println(textBuf);
+    // char textBuf[128];
+    // sprintf(textBuf, "Drawing from position %lu to %lu on lines %u to %u",
+    //     pos, endPos, startLine, endLine 
+    // );
+    // Serial.println(textBuf);
 
     for(uint32_t line = startLine; line < endLine; line++){      
         if((line * charsPerLine) > endPos){
             //Serial.print("Line is ahead of endpos, breaking");
             break; //done
         }
-        Serial.print("Drawing line "); Serial.println(line);
+        //Serial.print("Drawing line "); Serial.println(line);
         bool lineHasText = false;
         uint16_t lineLength =  min(endPos - pos, charsPerLine );
         memset(buf, 0, charsPerLine + 1);
-        // memset(lineBuf,backgroundColor, graphics.settings.charHeight * graphics.settings.screenWidth );
+        memset(lineBuf,backgroundColor, graphics.settings.charHeight * graphics.settings.screenWidth );
         memset(colorBuf, textColor,sizeof(colorBuf));
         //for(uint16_t idx = 0; idx < charsPerLine; idx++){
         programmer.ReadBytes((pos + (line * (charsPerLine ))) | (1 << 19), (uint8_t*)buf, lineLength);
-        if(!consoleState) //we don't do colors in console
-            programmer.ReadBytes((pos + (line * (charsPerLine ))) | (3 << 18) , (uint8_t*)colorBuf, lineLength);
+        //if(!consoleState) //we don't do colors in console
+        programmer.ReadBytes((pos + (line * (charsPerLine ))) | (3 << 18) , (uint8_t*)colorBuf, lineLength);
         
             
         for(uint16_t idx = 0; idx < lineLength; idx++){
@@ -195,12 +197,12 @@ void Console::_drawTextFromRam()
         }
         if(lineHasText){
             
-            //sprintf(textBuf, "Writing %i chars from idx %d to %d on line %lu", strlen(buf), line * charsPerLine, (line * charsPerLine) + lineLength - 1, line);
-            //Serial.println(textBuf);
-            //Serial.println(buf);
-            graphics.drawText(0, (line - _scrollOffset) * graphics.settings.charHeight, buf, textColor, backgroundColor,true, false, btVolatile);
-            // graphics.drawTextToBuffer(buf, colorBuf, lineBuf, graphics.settings.screenWidth);
-            // graphics.drawBuffer(0, line * graphics.settings.charHeight, graphics.settings.screenWidth, graphics.settings.charHeight, lineBuf, btVolatile);
+            // sprintf(textBuf, "Writing %u chars from idx %u to %lu on line %lu", strlen(buf), line * charsPerLine, (line * charsPerLine) + lineLength - 1, line);
+            // Serial.println(textBuf);
+            // Serial.println(buf);
+            //graphics.drawText(0, (line - _scrollOffset) * graphics.settings.charHeight, buf, textColor, backgroundColor,true, false, btVolatile);
+            graphics.drawTextToBuffer(buf, colorBuf, lineBuf, graphics.settings.screenWidth);
+            graphics.drawBuffer(0, line * graphics.settings.charHeight, graphics.settings.screenWidth, graphics.settings.charHeight, lineBuf, btVolatile);
         }
     }
     //Serial.println("-----------------------");
@@ -348,30 +350,22 @@ inline void Console::processKey(uint8_t keyCode)
         }
 
         if(_currentInputMode == Function){
+            Serial.print("Processing function 0x"); Serial.println(keyCode, HEX);
+            //return;
             switch (keyCode)
             {
                 case 0x50: //F1
                 case 0x51: //F2
                 {
-                    textColor++; 
+                    textColor--; 
                     return;                         
                 }
                     
                 case 0x53: //F4
                 {
-                    //dump data to serial
-                    uint16_t pos = GetDataPos();
-                    char nextChar = ' ';
-                    if(pos <=  0) return;
-                    Serial.println("Dumping data contents... ");
-                    for(int idx = 0; idx < GetDataPos();idx++){
-                        nextChar = programmer.ReadByte(1 << 19 | idx);
-                        if((nextChar >= 32 && nextChar < 127) || nextChar == 10)
-                            Serial.print(nextChar);
-                    }
-                    programmer.ReadByte(0x0); // unset bit 19 so screen accesses video ram
-                }
-                    return;                        
+                    textColor++; 
+                    return; 
+                }                       
                 // ...
             }
         }        
@@ -469,8 +463,10 @@ bool Console::AdvanceCursor(bool nextLine)
         _scrollOffset++;
         Serial.println ("**\tScrolling down");
         _drawTextFromRam();
-    } else //otherwise move down one
+    } else{ //otherwise move down one
         _cursorY += graphics.settings.charHeight;
+        Serial.println("Moving cursor down.");
+    }
     
     
     return true;
@@ -759,10 +755,31 @@ size_t Console::print(int num, int base)
     return write(buf);
 }
 
+size_t Console::print(unsigned int i, int)
+{
+    char buf[12];
+    sprintf(buf,"%i", i);
+    return write(buf);
+}
+
 size_t Console::print(unsigned long num, int base)
 {
-     char buf[16];
+    char buf[10];
     sprintf(buf,"%lu", num);
+    return write(buf);
+}
+
+size_t Console::print(unsigned long long num, int base)
+{
+    char buf[20];
+    sprintf(buf,"%llu", num);
+    return write(buf);
+}
+
+size_t Console::print(double d, int)
+{
+    char buf[32];
+    sprintf(buf,"%lf", d);
     return write(buf);
 }
 
