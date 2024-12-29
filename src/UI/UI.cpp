@@ -15,6 +15,13 @@ void uiProcessKey(uint8_t data){
     cmdBuf[cmdBufIdx++] = data;    
 }
 
+void uiProcessClick(MouseClickArgs args){
+    Serial.print("Clicked at"); Serial.print(args.location.x); Serial.print(","); Serial.print(args.location.y);
+    Serial.print(" button "); 
+    Serial.print( args.button == 1 << 0 ? "1" : args.button == 1 << 1 ? "2" : args.button == 1 << 2 ? "3" : "unknown");
+    Serial.println();
+}
+
 #define UI_SOURCE "UI"
 void readMemory(commandRequest request){
     
@@ -354,6 +361,10 @@ void showHelp(commandRequest request){
     ui.PrintMenu();
 }
 
+void reboot(commandRequest request){
+    RSTC->RSTC_CR = 0xA5000005; // Reset processor and internal peripherals
+}
+
 UI::UI()
 {
     console.SetColor(Color::GREEN);
@@ -382,7 +393,9 @@ void UI::begin()
     commands.registerCommand(UI_SOURCE,"edit","", runEditor);
     commands.registerCommand(UI_SOURCE,"graphics","", setGraphicsRenderMode);
     commands.registerCommand(UI_SOURCE,"help","", showHelp);
+    commands.registerCommand(UI_SOURCE,"reboot","", reboot);
     keyboard.onKeyDown = uiProcessKey;
+    mouse.onClick = uiProcessClick;
     
 }
 

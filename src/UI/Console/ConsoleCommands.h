@@ -193,7 +193,7 @@ void edit(commandRequest request){
         console.println("Creating new file");
         //return 0;
     }
-    console.stop();
+    console.end();
     editor.open(request.args); 
     editor.run();
     
@@ -286,14 +286,20 @@ void runProgram(commandRequest request){
     } 
     console.println("Starting app");
     
-    console.stop();  //drop due interrupt
-    startApp(FLASH1);
-    Serial.print("Returned control");
+    console.end();  //drop due interrupt
+    auto result = startApp(FLASH1, console);
+    //failed to start app
+    console.run();
+    uint8_t color = console.GetColor();
+    console.SetColor(Color::RED);
+    console.print("Failed to start app: ");
+    console.println(returnResultText(result));
+    console.SetColor(color);
     return;
 }
 
 void commandExit(commandRequest request){
-    console.stop();
+    console.end();
     ui.begin();
 
 }

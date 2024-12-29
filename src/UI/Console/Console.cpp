@@ -5,6 +5,11 @@ extern Editor editor;
 extern Console console;
 
 
+
+bool _positionUpdated = false;
+bool _mouseClicked = false;
+bool _mouseDragged = false;
+int16_t dragX = 0, dragY = 0;
 void consoleProcessKey(uint8_t data){
     //Serial.print("Received key 0x"); Serial.println(data, HEX);
     console.processKey(data);
@@ -14,6 +19,31 @@ void consoleDrawCursor(){
     //Serial.println("Console draw cursor");
     console.ToggleCursor();
     console.DrawCursor();
+}
+
+
+void mouseMove(int16_t moveX, int16_t moveY){
+    _positionUpdated = true;   
+}
+
+void mouseClick(MouseClickArgs args){
+    _mouseClicked = true;
+    Serial.print("Clicked button: "); Serial.println(args.button);
+    if(args.button == MouseButton::LEFT_BUTTON){
+        auto pointer = mouse.getPointer();
+        pointer = (MousePointer)((int)pointer + 1);
+        if(pointer > 3)
+            pointer = (MousePointer)0;
+        mouse.setPointer(pointer);
+    }
+   
+}
+
+
+void mouseDrag(int16_t x, int16_t y){
+    _mouseDragged = true;
+    dragX = x;
+    dragY = y;
 }
 
 size_t Console::write(uint8_t data, bool useFrameBuffer)
@@ -83,13 +113,17 @@ void Console::run(bool blocking )
     keyboard.onKeyDown = consoleProcessKey;
     
     //    _cursorTimer = Timer.getAvailable().attachInterrupt(consoleDrawCursor);
-    Serial.println("Enter text to render. Ctrl+R to quit");
+    Serial.println("Started console. Type `exit` or Ctrl + R to quit");
     charsPerLine = graphics.settings.screenWidth / graphics.settings.charWidth;
     clear();    
     if(blocking){
         _echoPrompt = true;
-        if(!_initialized)
+        
+        if(!_initialized){
+            Serial.print("Initializing SD");
             _initSD();
+            Serial.println("  done");
+        }
         clearData(); 
         _cursorX = 0;
         _cursorY = 0;
@@ -97,7 +131,12 @@ void Console::run(bool blocking )
         //SetEchoMode(true);
     }
     _needEcho = true;
-    mouse.begin();
+    Serial.print("Initializing mouse");            
+    mouse.onMouseMove = mouseMove;
+    mouse.onClick = mouseClick;
+    mouse.onMouseDrag = mouseDrag;
+    mouse.RequestRedraw();
+    Serial.println("  done");
     ShowCursor();
 }
 
@@ -126,6 +165,7 @@ void Console::loop()
         }
         AdvanceCursor(true);
         ShowCursor();
+        mouse.RequestRedraw();
         memset(_cmdBuf,0,sizeof(_cmdBuf));
         _cmdBufIdx = 0;
         _commandReady = false;
@@ -135,10 +175,28 @@ void Console::loop()
         _commandMode = true;
         _needEcho = true;
     }
-    mouse.update();
+
+    if(_positionUpdated){
+        _positionUpdated = false;
+        Serial.print("Mouse new position: (");
+        Serial.print(mouse.location().x); Serial.print(" , ");
+        Serial.print(mouse.location().y); Serial.println(")");
+        //mouse.update();
+    }  
+    if(_mouseClicked){
+        _mouseClicked = false;
+        Serial.println("Mouse clicked");
+        //mouse.update();
+    } 
+    if(_mouseDragged){
+        _mouseDragged = false;
+        graphics.drawRectangle(mouse.location(), Point(dragX, dragY),255);
+        //mouse.update();
+    }
+    //mouse.update();
 }
 
-void Console::stop()
+void Console::end()
 {
     _consoleRunning = false;
     _commandMode = false;
@@ -157,35 +215,37 @@ void Console::_drawTextFromRam()
     uint32_t pos = _scrollOffset * (charsPerLine);
     uint32_t endPos = min(_lastIdx, ((_windowHeight / graphics.settings.charHeight) * charsPerLine));
     uint16_t startLine = 0;// _scrollOffset;
-    uint16_t endLine = /*_scrollOffset + */(graphics.settings.screenHeight / graphics.settings.charHeight);
+    uint16_t endLine = /*_scrollOffset + */(graphics.settings.screenHeight / graphics.settings.charHeight) ;
+
+    unsigned long drawTime = 0, timerTime = 0;
     if(endPos < pos) return; // nothing to print
     
     //check how many bytes we can fit, updat end pos accordingly.
     char buf[charsPerLine + 1];
     byte colorBuf[charsPerLine];
-    uint8_t lineBuf[graphics.settings.charHeight * graphics.settings.screenWidth];
+    uint8_t lineBuf[graphics.settings.charHeight * graphics.settings.screenWidth ];
     bool consoleState = _consoleRunning;
     _consoleRunning = false;            
     clear();        
-    // char textBuf[128];
+    // char textBuf[charsPerLine];
     // sprintf(textBuf, "Drawing from position %lu to %lu on lines %u to %u",
     //     pos, endPos, startLine, endLine 
     // );
     // Serial.println(textBuf);
 
     for(uint32_t line = startLine; line < endLine; line++){      
-        if((line * charsPerLine) > endPos){
+        if((line  * charsPerLine) > endPos){
             //Serial.print("Line is ahead of endpos, breaking");
             break; //done
         }
         //Serial.print("Drawing line "); Serial.println(line);
         bool lineHasText = false;
-        uint16_t lineLength =  min(endPos - pos, charsPerLine );
+        uint16_t lineLength =  min(endPos - (pos + (line * (charsPerLine ))), charsPerLine );
         memset(buf, 0, charsPerLine + 1);
-        memset(lineBuf,backgroundColor, graphics.settings.charHeight * graphics.settings.screenWidth );
+        memset(lineBuf,backgroundColor, graphics.settings.charHeight * graphics.settings.screenWidth);
         memset(colorBuf, textColor,sizeof(colorBuf));
         //for(uint16_t idx = 0; idx < charsPerLine; idx++){
-        programmer.ReadBytes((pos + (line * (charsPerLine ))) | (1 << 19), (uint8_t*)buf, lineLength);
+        programmer.ReadBytes((pos + (line * (charsPerLine ))) | (1 << 19), (uint8_t*)buf, lineLength );
         //if(!consoleState) //we don't do colors in console
         programmer.ReadBytes((pos + (line * (charsPerLine ))) | (3 << 18) , (uint8_t*)colorBuf, lineLength);
         
@@ -193,22 +253,26 @@ void Console::_drawTextFromRam()
         for(uint16_t idx = 0; idx < lineLength; idx++){
             if((buf[idx] >= 32 && buf[idx] < 127)) lineHasText = true;
             //if( isascii(buf[idx]) && buf[idx] != 0) lineHasText = true;
-            else buf[idx] = ' ';
+            else if(buf[idx] != 10) buf[idx] = ' ';
         }
         if(lineHasText){
             
-            // sprintf(textBuf, "Writing %u chars from idx %u to %lu on line %lu", strlen(buf), line * charsPerLine, (line * charsPerLine) + lineLength - 1, line);
+            // sprintf(textBuf, "Writing %u chars from idx %u to %lu on line %lu", strlen(buf), line * charsPerLine , (line * charsPerLine ) + lineLength - 1, line);
             // Serial.println(textBuf);
             // Serial.println(buf);
+            timerTime = millis();
             //graphics.drawText(0, (line - _scrollOffset) * graphics.settings.charHeight, buf, textColor, backgroundColor,true, false, btVolatile);
             graphics.drawTextToBuffer(buf, colorBuf, lineBuf, graphics.settings.screenWidth);
-            graphics.drawBuffer(0, line * graphics.settings.charHeight, graphics.settings.screenWidth, graphics.settings.charHeight, lineBuf, btVolatile);
+            graphics.drawBuffer(0, line * graphics.settings.charHeight , graphics.settings.screenWidth, graphics.settings.charHeight , lineBuf, btVolatile);
+            drawTime += (millis() - timerTime);
         }
+        //pos += lineLength;
     }
     //Serial.println("-----------------------");
     programmer.ReadByte(0x0); 
     //graphics.render();
     _consoleRunning = consoleState;
+    Serial.print("Drawing text from ram took "); Serial.print(drawTime); Serial.println(" ms");
 }
 
 void Console::_printEcho()
@@ -421,7 +485,7 @@ inline void Console::processKey(uint8_t keyCode)
         }
         
         if(keyCode == 0x12){ //ctrl + r
-            stop();
+            end();
             Serial.println("Closing console");
             return;
         } 
@@ -787,4 +851,11 @@ size_t Console::println(unsigned char c, int base)
 {
     
     return write(c + 48) + write(13);
+}
+
+size_t Console::println(unsigned int i, int)
+{
+    char buf[12];
+    sprintf(buf,"%i\n", i);
+    return write(buf);
 }

@@ -3,7 +3,6 @@
 #include "SD.h"
 #include "Arduino.h"
 
-#include "Color.h"
 #include "DueHardwareVGA.h"
 #include "Programming/ProgramRom.h"
 #include "KeyboardController.h"
@@ -58,7 +57,7 @@ class Console : Print{
     public:
     void run(bool blocking = true);
     void loop();
-    virtual void stop();
+    virtual void end();
     inline String path(){ return _path;}
     inline void setPath(const char* path){ _path = path;}
     virtual size_t write(uint8_t data, byte color, byte backgroundColor, bool clearBackround = false, bool useFrameBuffer = false);
@@ -96,7 +95,7 @@ class Console : Print{
     size_t println(char);
     size_t println(unsigned char, int = DEC);
     size_t println(int, int = DEC);
-    size_t println(unsigned int, int = DEC);
+    size_t println(unsigned int i, int = DEC);
     size_t println(long, int = DEC);
     size_t println(unsigned long, int = DEC);
     size_t println(double, int = 2);
@@ -107,6 +106,7 @@ class Console : Print{
         programmer.Erase(0, (graphics.settings.screenHeight + 1) << graphics.settings.horizontalBits); 
         
     }
+    /// @brief Clears memory in data buffer (Addresss 0x40000) with length of characters that would fit into screen buffer
     virtual inline void clearData(){ programmer.Erase(1<<19, graphics.settings.screenBufferHeight * (graphics.settings.screenWidth/graphics.settings.charWidth));}
 
     int getCoords(const char* str, int * coords, uint32_t offset = 0);
