@@ -1,0 +1,19 @@
+{
+    "C_Cpp.errorSquiggles": "disabled",
+    "files.associations": {
+        "*.erd": "json",
+        "*.vuerd": "json",
+        "cmath": "cpp",
+        "string_view": "cpp",
+        "string": "cpp",
+        "*.tcc": "cpp",
+        "fstream": "cpp",
+        "typeinfo": "cpp",
+        "deque": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "system_error": "cpp",
+        "array": "cpp",
+        "initializer_list": "cpp"
+    }
+}
