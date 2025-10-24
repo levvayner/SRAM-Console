@@ -44,6 +44,9 @@ public:
 	//void GetChipCount();
 	//void PrintOpCode(uint8_t opCode, bool condJump);
 	void PrintOperations(uint8_t op);
+    inline void setProgrammingMode(bool mode){ 
+        _programmingMode = mode;
+    }
 
 private:
     template <typename TPort>
@@ -60,6 +63,7 @@ private:
     unsigned long updateFrequency = 200;
     unsigned long lastUpdated = 0;
     unsigned long checkingTime = 0;
+    bool _programmingMode = false;
 
 };
 #endif

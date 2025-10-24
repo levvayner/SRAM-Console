@@ -166,7 +166,7 @@ bool Editor::open(const char *filename)
         int bytesRead = f.readBytes(buf,sizeof(buf));
         if(bytesRead == 0 ) continue;
         
-        programmer.WriteBytes(1<<19 | idx, (uint8_t*)buf,bytesRead);
+        //programmer.WriteBytes(1<<19 | idx, (uint8_t*)buf,bytesRead);
         idx += bytesRead;
     }
     f.close();
@@ -364,12 +364,12 @@ void Editor::processKey(uint8_t keyCode)
                 char nextChar = ' ';
                 if(pos <=  0) return;
                 Serial.println("Dumping data contents... ");
-                for(int idx = 0; idx < GetDataPos();idx++){
-                    nextChar = programmer.ReadByte(1 << 19 | idx);
-                    if((nextChar >= 32 && nextChar < 127) || nextChar == 10)
-                        Serial.print(nextChar);
-                }
-                programmer.ReadByte(0x0); // unset bit 19 so screen accesses video ram
+                // for(int idx = 0; idx < GetDataPos();idx++){
+                //     nextChar = programmer.ReadByte(1 << 19 | idx);
+                //     if((nextChar >= 32 && nextChar < 127) || nextChar == 10)
+                //         Serial.print(nextChar);
+                // }
+                // programmer.ReadByte(0x0); // unset bit 19 so screen accesses video ram
             }
                 return;                        
             // ...
@@ -477,8 +477,12 @@ void Editor::_drawCursorPosition(){
 void Editor::_drawLineNo()
 {
     char buf[6];
-    graphics.fillRectangle(150, graphics.settings.screenHeight - 9, 32, 8, Color::FromRGB(1,1,0));
     sprintf(buf,"%i", (_scrollOffset + _cursorY / 9) + 1);
+
+    graphics.fillRectangle(150, graphics.settings.screenHeight - 9, 32, 8, Color::FromRGB(1,1,0));
+    graphics.drawText(152, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(1,1,0), false);
+    graphics.setReady();
+    graphics.fillRectangle(150, graphics.settings.screenHeight - 9, 32, 8, Color::FromRGB(1,1,0));
     graphics.drawText(152, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(1,1,0), false);
 }
 

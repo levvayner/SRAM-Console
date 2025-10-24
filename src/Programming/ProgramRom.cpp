@@ -2,6 +2,7 @@
 #include "UI/UI.h"
 extern SRAM programmer;
 extern UI ui;
+extern DueFlashStorage dueFlashStorage;
 #define TIMEOUT_WAIT_FOR_HOST 1000 * 60
 
 
@@ -30,7 +31,7 @@ bool ProgramRom::RunAutomatedProgramming() {
 	unsigned long startTime = millis();
 	bool startComms = false;
 	String lineIn;
-	int lineCount = 0;
+	int lineCount = 0; int programType = 0;
 	
 	while (millis() - startTime < TIMEOUT_WAIT_FOR_HOST && !startComms) {
 		if (TIMEOUT_WAIT_FOR_HOST / 10 % millis() - startTime == 0)
@@ -56,20 +57,41 @@ bool ProgramRom::RunAutomatedProgramming() {
 	while (!Serial.available());
 	delay(10);
 
-	//int readLines = 0; //getLines = false;
+    //int readLines = 0; //getLines = false;
 	startTime = millis();
 	uint8_t counter = 0;
 	//while (startTime + 100 > millis() || counter == 0) {
 		if (Serial.available()) {
-			lineIn = Serial.readString();
-			lineCount = lineIn.toInt();
+			lineIn = Serial.read();
+            //Serial.print("Set program type as"); Serial.println(lineIn);
+			programType = atoi(lineIn.c_str());
 			//lineCount = lineCount << 8 | (byte)Serial.read();
 			startTime = millis();
+			//counter++;
+		}
+	//}
+	
+	Serial.print("Established program type: "); Serial.println(programType,BIN);
+    
+
+    while (!Serial.available());
+    //delay(10);
+
+	//int readLines = 0; //getLines = false;
+	startTime = millis();
+	//while (startTime + 100 > millis() || counter == 0) {
+		if (Serial.available()) {
+			lineIn = Serial.readString();
+			lineCount = atoi(lineIn.c_str());
+			//lineCount = lineCount << 8 | (byte)Serial.read();
+			startTime = millis();
+            graphics.fillRectangle(0,0,lineIn.length() * graphics.settings.charWidth,graphics.settings.charHeight,0);
+            graphics.drawText(0,0,lineIn.c_str(), 255);
 			counter++;
 		}
 	//}
 	
-	Serial.print("Established byte count: "); Serial.println(lineCount,BIN);
+	Serial.print("Established byte count: 0x"); Serial.println(lineCount,HEX);
 
     while (!Serial.available());
     delay(10);
@@ -77,7 +99,12 @@ bool ProgramRom::RunAutomatedProgramming() {
 	//frame size
 	startTime = millis();	
     while (Serial.available() && startTime + 100 > millis()) {
-        frameSize = Serial.readString().toInt();
+        auto str = Serial.readString();
+        frameSize = atoi(str.c_str());
+        if(frameSize == 0){
+            Serial.println("Failed to get program. Frame size is 0.");
+            return false;
+        }
         Serial.print("Read frame size from serial: "); Serial.println(frameSize);
         startTime = millis();
 		
@@ -101,6 +128,9 @@ bool ProgramRom::RunAutomatedProgramming() {
     //     Serial.println("Failed to allocate memory for frame");
     //     return false;
     // }
+    // auto pointer = mouse.getPointer();
+    // mouse.setPointer(MousePointer::pointerNone);
+    delay(10);
     for (int i = 0; i < frameCount; i++) {
         startTime = millis();
         int frameBytesRead = 0; 
@@ -110,27 +140,40 @@ bool ProgramRom::RunAutomatedProgramming() {
         memset(buf,0,1024);
 
         //we will receive a frame and respond
-        while(!Serial.available() && startTime + 500 > millis());
-        while( startTime + 5000 > millis() && frameBytesRead < actualSize)
+        while(!Serial.available());
+        while( startTime + 2000 > millis() && frameBytesRead < actualSize)
         {
             if(Serial.available()){
                 bytesRead = Serial.readBytes(frameBuffer + frameBytesRead,Serial.available());
                 frameBytesRead += bytesRead;
+                //startTime = millis();
             }
         }
-        // sprintf(buf,"Frame %i of %i (%i bytes): ", i + 1, frameCount, frameBytesRead);
-        // //Serial.print("Read "); Serial.print(frameBytesRead); Serial.println(" bytes");
+        sprintf(buf,"Frame %i of %i (%i bytes): ", i + 1, frameCount, frameBytesRead);
+        //Serial.print("Read "); Serial.print(frameBytesRead); Serial.println(" bytes");
         // for(int idx=0;idx < frameBytesRead;idx++){
         //     if(strlen(buf) > 1024) break; //make sure we don't overflow
         //     sprintf(buf,"%s %02X", buf, frameBuffer[idx]);        
         // }
+        Serial.println(buf);
         if(frameBytesRead == 0)	{            
             Serial.println("Failed to read from serial. NO DATA");
             return false;
-        }    
-        programmer.WriteBytes(i*frameSize, frameBuffer, frameBytesRead);			
-        //Serial.println(buf);
-	}
+        }   
+        if(programType == 0)
+            
+            programmer.WriteBytes(i*frameSize, frameBuffer, frameBytesRead);			
+        else{
+             //console.println("Loading file into ROM...");
+            
+                if(!dueFlashStorage.write(i*frameSize,frameBuffer,frameBytesRead)){
+                    Serial.println("Error occured writing data");
+                    return false;
+                }    
+        } 
+    }
+        
+	//mouse.setPointer(pointer);
 
     //free(frameBuffer);
 	//for (int i = 0; i < frameCount; i++) {
@@ -199,7 +242,7 @@ bool ProgramRom::RunAutomatedProgramming() {
 	//		
 	//	
 	//}
-	return sucess;
+	return true;
 }
 
 

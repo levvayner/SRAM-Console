@@ -310,13 +310,13 @@ void dumpData(commandRequest request){
     if(pos <=  0) return;
     Serial.println("Dumping data contents... ");
     //     return;
-    for(int idx = 0; idx < pos;idx++){
+    // for(int idx = 0; idx < pos;idx++){
         
-        nextChar = programmer.ReadByte(1 << 19 | idx);
-        if((nextChar >= 32 && nextChar < 127) || nextChar == 10)
-            Serial.print(nextChar);
-    }
-    programmer.ReadByte(0x0); // unset bit 19 so screen accesses video ram
+    //     nextChar = programmer.ReadByte(1 << 19 | idx);
+    //     if((nextChar >= 32 && nextChar < 127) || nextChar == 10)
+    //         Serial.print(nextChar);
+    // }
+    // programmer.ReadByte(0x0); // unset bit 19 so screen accesses video ram
 }
 
 void registerConsoleCommands(){
@@ -349,7 +349,9 @@ ScratchArea _scratch;
 uint64_t size = 0;
 void listFiles(const char * path, int indent,  char*  flags)
 {
+    Serial.print("Opening SD ..");
     File rootFile = SD.open(path);
+    Serial.println(" .. done ");
     bool longFormat = strchr(flags, 'l') != nullptr;
     bool recursive = strchr(flags, 'r') != nullptr;
     if(!rootFile){

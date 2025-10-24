@@ -29,7 +29,7 @@ void mouseMove(int16_t moveX, int16_t moveY){
 void mouseClick(MouseClickArgs args){
     _mouseClicked = true;
     Serial.print("Clicked button: "); Serial.println(args.button);
-    if(args.button == MouseButton::LEFT_BUTTON){
+    if(args.button ==1){
         auto pointer = mouse.getPointer();
         pointer = (MousePointer)((int)pointer + 1);
         if(pointer > 3)
@@ -52,11 +52,11 @@ size_t Console::write(uint8_t data, bool useFrameBuffer)
 }
 size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clearBackround, bool useFrameBuffer)
 {
-    auto pos = 1 << 19 | GetDataPos();
+    //auto pos = 1 << 19 | GetDataPos();
     EraseCursor();
     //Serial.print("Console: Writing data: "); Serial.print(data); Serial.print(" at position: 0x"); Serial.println(pos, HEX);
     if(data == 10 /* && _consoleRunning*/ ){
-        programmer.WriteByte( pos,data); //write to data space
+       // programmer.WriteByte( pos,data); //write to data space
         AdvanceCursor(true);
         return 1;
     }
@@ -70,8 +70,8 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
     
     if(_consoleRunning && !useFrameBuffer) {
         //Serial.print("Stored command to 0x"); Serial.println(pos,HEX);
-        programmer.WriteByte( pos,data); //write to data space
-        programmer.WriteByte( pos | (1 << 18),color); //store color info
+        //programmer.WriteByte( pos,data); //write to data space
+       // programmer.WriteByte( pos | (1 << 18),color); //store color info
     }
     AdvanceCursor();
 
@@ -94,7 +94,9 @@ size_t Console::write(const uint8_t *buffer, size_t size)
     for(size_t idx = 0; idx < size; idx++)
         write(buffer[idx], textColor, backgroundColor, true, false);
 
-    
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
     return size;
 }
 
@@ -124,7 +126,7 @@ void Console::run(bool blocking )
             _initSD();
             Serial.println("  done");
         }
-        clearData(); 
+        //clearData(); 
         _cursorX = 0;
         _cursorY = 0;
         //SetEchoMode(false);
@@ -160,6 +162,10 @@ void Console::loop()
         AdvanceCursor(true);
         if(command.valid){     
             command.onExecute(command);
+            #ifdef DOUBLE_BUFFER
+            graphics.setReady();
+            command.onExecute(command);
+            #endif
         }else{            
             println("Invalid command");           
         }
@@ -190,7 +196,7 @@ void Console::loop()
     } 
     if(_mouseDragged){
         _mouseDragged = false;
-        graphics.drawRectangle(mouse.location(), Point(dragX, dragY),255);
+        graphics.drawRectangle(mouse.location(), Point2D(dragX, dragY),255);
         //mouse.update();
     }
     //mouse.update();
@@ -312,12 +318,16 @@ void Console::_initSD()
         println("* is your wiring correct?");
         println("* did you change the chipSelect pin to match your shield or module?");
         return;
+    } else{
+        println("Initialized Card...");
     }
    
     // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
     if (!volume.init(card) && _commandMode) {
         println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
         return;
+    } else{
+        println("Initialized Volume...");
     }
     //root.close();
     _initialized = true;
@@ -495,6 +505,9 @@ inline void Console::processKey(uint8_t keyCode)
         }       
     
     }
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
 }
 
 bool Console::AdvanceCursor(bool nextLine)
@@ -529,10 +542,12 @@ bool Console::AdvanceCursor(bool nextLine)
         _drawTextFromRam();
     } else{ //otherwise move down one
         _cursorY += graphics.settings.charHeight;
-        Serial.println("Moving cursor down.");
+        //Serial.println("Moving cursor down.");
     }
     
-    
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
     return true;
     
 }
@@ -550,6 +565,9 @@ bool Console::ReverseCursor()
         if(_cursorX % 6 != 0) _cursorX -= _cursorX % 6; // adjust to 6 pixel wide char grid
     } else //if(!_echoPrompt || _cursorX > _promptLength * graphics.settings.charWidth){
         _cursorX -= (graphics.settings.charWidth);
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
     //}
     return true;
 }
@@ -590,6 +608,9 @@ bool Console::MoveCursorUp()
     if(_cursorY > 0) _cursorY -= graphics.settings.charHeight;
     _cursorState = true;
     DrawCursor();
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
     return true;
 }
 
@@ -625,6 +646,9 @@ bool Console::MoveCursorDown()
         _cursorY += graphics.settings.charHeight;
     _cursorState = true;
     DrawCursor();
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
     return true;
 }
 
@@ -639,6 +663,9 @@ bool Console::MoveCursorRight()
     _cursorX += graphics.settings.charWidth;
     _cursorState = true;
     DrawCursor();
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
     return true;
 }
 
@@ -653,6 +680,9 @@ bool Console::MoveCursorLeft()
     _cursorX -= (graphics.settings.charWidth);
     _cursorState = true;
     DrawCursor();
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
     return true;
 }
 
@@ -662,16 +692,21 @@ void Console::DrawCursor()
     if(!_cursorVisible) return;
     //if not visible, hide, otherwise if visible show
     memset(_scratch.bytes, _cursorState ? Color::WHITE : Color::BLACK, graphics.settings.charWidth);
-    graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
-    
+    graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
+    //graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
+    #ifdef DOUBLE_BUFFER
+    graphics.setReady();
+    #endif
 }
 
 void Console::EraseCursor()
 {
     if(!_cursorVisible) return;
     memset(_scratch.bytes, 0, graphics.settings.charWidth);
-    graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
-    
+    graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
+    #ifdef DOUBLE_BUFFER
+    graphics.setReady();
+    #endif
 }
 
 void Console::printDiskInfo()
@@ -729,6 +764,9 @@ void Console::printDiskInfo()
     write(10);
     
     console.SetEchoMode(true);
+    #ifdef DOUBLE_BUFFER
+    //graphics.setReady();
+    #endif
 }
 
 int Console::_saveCommand()
@@ -773,6 +811,9 @@ size_t Console::println(const char* str)
 {
     this->write(str);
     this->AdvanceCursor(true);
+    // #ifdef DOUBLE_BUFFER
+    // graphics.setReady();
+    // #endif
     return strlen(str);
 }
 
@@ -787,6 +828,7 @@ size_t Console::println(unsigned long num, int base)
     
     write(text.c_str());
     write(10,true);
+    
     return text.length();
 }
 
@@ -799,7 +841,7 @@ size_t Console::println(double value, int precision)
 
 size_t Console::println(void)
 {
-    return write(13);
+    return write(10);
 }
 
 size_t Console::print(char c)
@@ -855,6 +897,11 @@ size_t Console::println(unsigned char c, int base)
 
 size_t Console::println(unsigned int i, int)
 {
+    char buf[12];
+    sprintf(buf,"%i\n", i);
+    return write(buf);
+}
+size_t Console::println(int i, int){
     char buf[12];
     sprintf(buf,"%i\n", i);
     return write(buf);

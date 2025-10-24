@@ -103,11 +103,11 @@ class Console : Print{
     size_t println(void);
 
     virtual inline void clear(){ 
-        programmer.Erase(0, (graphics.settings.screenHeight + 1) << graphics.settings.horizontalBits); 
+        graphics.clear();
         
     }
     /// @brief Clears memory in data buffer (Addresss 0x40000) with length of characters that would fit into screen buffer
-    virtual inline void clearData(){ programmer.Erase(1<<19, graphics.settings.screenBufferHeight * (graphics.settings.screenWidth/graphics.settings.charWidth));}
+    //virtual inline void clearData(){ programmer.Erase(1<<19, graphics.settings.screenBufferHeight * (graphics.settings.screenWidth/graphics.settings.charWidth));}
 
     int getCoords(const char* str, int * coords, uint32_t offset = 0);
 
@@ -144,8 +144,8 @@ class Console : Print{
     virtual inline void SetCommandMode(bool commandModeEnabled){
         _commandMode = commandModeEnabled;
     }
-    virtual inline Point GetPosition(){
-        return Point(_cursorX, _cursorY);
+    virtual inline Point2D GetPosition(){
+        return Point2D(_cursorX, _cursorY);
     }
     //int RunProgram(const char* programName);
 
