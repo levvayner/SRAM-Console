@@ -31,7 +31,7 @@ void setup() {
 	digitalWrite(PIN_LED, LOW);
 	Serial.println("");
 	Serial.println("Starting SRAM tool");
-    graphics.begin();
+    //graphics.begin();
     editor.clear();    
     if(!SD.begin(10)){        
         Serial.println("Failed to start SD");

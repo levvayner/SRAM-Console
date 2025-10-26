@@ -182,7 +182,7 @@ void showScreenSaver(commandRequest request){
         char key = keyboard.getKey();
             
         if(key == 'q' || key == 'Q'){
-            graphics.clear();            
+            saver.stop();         
             break;
         }
         
@@ -622,6 +622,19 @@ void UI::PrintMenu() {
     #ifdef DOUBLE_BUFFER
     graphics.setReady();
     #endif
+
+    Serial.print("Size of Point2D: "); Serial.println(sizeof(Point2D));
+    Serial.print("Size of Shape2D: "); Serial.println(sizeof(Shape2D));
+    Serial.print("Size of Circle2D: "); Serial.println(sizeof(Circle2D));
+    Serial.print("Size of Oval2D: "); Serial.println(sizeof(Oval2D));
+    Serial.print("Size of Arc2D: "); Serial.println(sizeof(Arc2D));
+    Serial.print("Size of Line2D: "); Serial.println(sizeof(Line2D));
+    Serial.print("Size of Triangle2D: "); Serial.println(sizeof(Triangle2D));
+    Serial.print("Size of Rectangle2D: "); Serial.println(sizeof(Rectangle2D));
+    Serial.print("Size of Polygon2D: "); Serial.println(sizeof(Polygon2D));
+    Serial.print("Size of Texture2D: "); Serial.println(sizeof(Texture2D));
+    Serial.print("Size of GraphicsObject2D: "); Serial.println(sizeof(GraphicsObject2D));
+    Serial.print("Size of Graphics2D: "); Serial.println(sizeof(Graphics2D));
 
 	needPrintMenu = false;
 }

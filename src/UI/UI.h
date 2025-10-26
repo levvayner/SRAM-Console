@@ -11,6 +11,7 @@
 #include "ScreensaverMandelbrot.h"
 extern SRAM programmer;
 extern VRAM graphics;
+extern GPU gpu;
 extern ProgramRom programRom;
 extern Console console;
 extern Editor editor;

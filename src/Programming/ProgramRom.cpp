@@ -81,12 +81,13 @@ bool ProgramRom::RunAutomatedProgramming() {
 	startTime = millis();
 	//while (startTime + 100 > millis() || counter == 0) {
 		if (Serial.available()) {
+            auto graphics = gpu.GetGraphics();
 			lineIn = Serial.readString();
 			lineCount = atoi(lineIn.c_str());
 			//lineCount = lineCount << 8 | (byte)Serial.read();
 			startTime = millis();
-            graphics.fillRectangle(0,0,lineIn.length() * graphics.settings.charWidth,graphics.settings.charHeight,0);
-            graphics.drawText(0,0,lineIn.c_str(), 255);
+            graphics->fillRectangle(0,0,lineIn.length() * graphics->settings.charWidth,graphics->settings.charHeight,0);
+            graphics->drawText(0,0,lineIn.c_str(), 255);
 			counter++;
 		}
 	//}
