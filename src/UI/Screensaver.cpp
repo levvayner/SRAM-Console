@@ -1,5 +1,6 @@
 #include "Screensaver.h"
-
+#include <stdlib.h>
+#include <utility> 
 
 
 void ScreenSaver::start()
@@ -8,38 +9,54 @@ void ScreenSaver::start()
     _yTiles = (graphics.settings.screenHeight / tileHeight);
     uint32_t gridSize = _xTiles * _yTiles;
 
-    // if (blockObject != nullptr) {
-    //     gpu.Set2DObjects(nullptr); // detach GPU from old list
-    //     delete blockObject;
-    //     blockObject = nullptr;
-    // }
+    if (blockObject != nullptr) {
+        delete blockObject;
+        blockObject = nullptr;
+    }
     blockObject = new Graphics2D();
     
     _frameBuffer = new uint8_t[gridSize];
     _currentPosition =  ((_yTiles / 2) * _xTiles  - (_xTiles / 2)); //center?
-    Serial.print("Set up screen tiles "); Serial.print(_xTiles); Serial.print("x"); Serial.println(_yTiles);
-    Serial.print("Using bank #"); Serial.println(gpu.activeBank() ? 1 : 0);
+    // Serial.print(F("Set up screen tiles ")); Serial.print(_xTiles); Serial.print("x"); Serial.println(_yTiles);
+    // Serial.print("Using bank #"); Serial.println(gpu.activeBank() ? 1 : 0);
     //uint8_t gridColor = rand()%255;
     //graphics.fillRectangle(0,0,graphics.settings.screenWidth, graphics.settings.screenHeight, gridColor);
     //blockTexture = new Texture2D(tileWidth, tileHeight);
-    blockTexture->Fill(Color::DARK_GREEN);
-    
-    for(int idx=0;idx < _xTiles;idx++){
-        for(int line = 0; line < _yTiles; line++){
-            blockObject->shapeList->push_back(GraphicsObject2D(Rectangle2D(
-                Point2D(idx * tileWidth, line * tileHeight),
-                Point2D(idx * tileWidth + tileWidth - 1, line * tileHeight + tileHeight - 1),
+    //blockTexture->Fill(Color::DARK_GREEN);
+
+    Rectangle2D* rect = nullptr;
+   // Texture2D* blockTexture = nullptr;
+
+    for(int line = 0; line < _yTiles; line++){
+        for(int idx=0;idx < _xTiles;idx++){
+            // allocate shape on heap so ownership can transfer into the GraphicsObject2D
+            rect = new Rectangle2D(
+                idx * tileWidth,
+                line * tileHeight,
+                idx * tileWidth + tileWidth - 1,
+                line * tileHeight + tileHeight - 1,
                 FillStyle::Fill
-            ), *blockTexture));
-            //gpu.Add2DObject(blockObjects[idx + line * _xTiles]);
-            gpu.saveRamStates();
-            gpu.PrintRAMstates();        
-            //graphics.drawRectangle(idx * tileWidth, line * tileHeight, tileWidth, tileHeight, gridColor);            
+            );
+            //blockTexture = new Texture2D(1,1, Color::BRICK);
+
+            // create a local GraphicsObject2D (will take ownership of rect pointer)
+            GraphicsObject2D localObj(rect, graphics.settings.backgroundColor);
+            
+
+            //Serial.print("["); Serial.print(_xTiles * line + idx); Serial.print("] ");
+            // move the local into the list so the move ctor runs
+            blockObject->shapeList->push_back(std::move(localObj));
+
+            // avoid deleting rect here — ownership moved into the stored object
+            // gpu.saveRamStates();
+            // gpu.PrintRAMstates();
         }
     }
+    gpu.saveRamStates();
+    gpu.PrintRAMstates();      
     Serial.print("Created "); Serial.print(blockObject->shapeList->size()); Serial.println(" block objects for screen grid");
-    Serial.print("Size of block object shape list: "); Serial.println(sizeof(blockObject->shapeList) * sizeof(blockObject->shapeList[0]));
-    gpu.Set2DObjects(&blockObject->shapeList);
+    Serial.print("Size of block object shape list: "); Serial.println(sizeof(blockObject->shapeList) * sizeof(blockObject->shapeList->begin().node->value));
+    gpu.Set2DObjects(blockObject->shapeList);
     Serial.print("Graphics2D shape list: "); Serial.println(sizeof(gpu.Get2DObjects()));
     Serial.print("Added "); Serial.print(gpu.Get2DObjects()->size()); Serial.println(" 2D objects to GPU");
     gpu.Render();
@@ -49,7 +66,7 @@ void ScreenSaver::start()
     _collisionConter = 0;
     _running = true;
     memset(_frameBuffer,0, gridSize);
-    Serial.print("Setting current direction to "); Serial.println(_currentDirection);
+    //Serial.print("Setting current direction to "); Serial.println(_currentDirection);
 }
 
 void ScreenSaver::step()
@@ -62,8 +79,7 @@ void ScreenSaver::step()
     if(millis() - _lastStepTime < stepDuration) return;
     if(_collisionConter >= MAX_COLLISSIONS) {
         stop();
-        //gpu.Clear2DObjects();
-        start();        
+        start();
         return;
     }
     // Serial.print("Stepping screen saver. Direction: ");
@@ -140,10 +156,15 @@ void ScreenSaver::step()
         return;
         break;
     }
-    auto cell = gpu.Get2DObjectAt(x() * tileWidth, y() * tileHeight);
+    auto *cell = gpu.Get2DObjectAt(x() * tileWidth, y() * tileHeight);
     if(cell != nullptr){
         //Serial.print("Drawing at tile "); Serial.print(x() * tileWidth); Serial.print(", "); Serial.println(y() * tileHeight);
-        cell->texture->Fill(_color);
+        if(cell->texture == nullptr){
+            cell->color = _color;
+        }
+        else{
+            cell->texture->Fill(_color);
+        }
         cell->drawnOnMem1 = false;
         cell->drawnOnMem2 = false;
     }else{
@@ -194,9 +215,8 @@ void ScreenSaver::step()
 
 void ScreenSaver::stop()
 {
-    delete _frameBuffer;
+    delete[] _frameBuffer;
+    _frameBuffer = nullptr;
     _running = false;
-    gpu.ClearScreen();    
-    gpu.saveRamStates();
-    gpu.PrintRAMstates();
+    gpu.ClearScreen();
 }

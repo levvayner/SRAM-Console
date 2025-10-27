@@ -32,11 +32,11 @@ private:
     uint32_t _currentPosition = 0;
     uint8_t _currentDirection = 0; // 0 -up, 1 - right, 2 - down, 3 - left
     uint8_t _color;
-    const uint8_t tileWidth = 100;
-    const uint8_t tileHeight = 100;
+    const uint8_t tileWidth = 25;
+    const uint8_t tileHeight = 25;
     uint16_t _xTiles, _yTiles;
 
-    Texture2D* blockTexture = new Texture2D(1,1);
+    
     Graphics2D* blockObject = nullptr;
 
     unsigned long _lastStepTime = 0;
