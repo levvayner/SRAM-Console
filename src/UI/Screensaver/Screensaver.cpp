@@ -6,6 +6,7 @@ extern UI ui;
 
 void ScreenSaver::start()
 {
+    gpu.ClearScreen();
     srand(millis());
     tileWidth = rand() % SIZE_RANGE + MIN_BLOCK_SIZE; //30-50
     tileHeight = rand() % SIZE_RANGE + MIN_BLOCK_SIZE; //30-50
@@ -46,12 +47,10 @@ void ScreenSaver::start()
             Serial.print("["); Serial.print(_xTiles * line + idx); Serial.print("] ");
             // move the local into the list so the move ctor runs
             ui.blockObject->shapeList->push_back(std::move(localObj));
-            gpu.saveRamStates();
-            gpu.PrintRAMstates();    
+            gpu.PrintRam(Serial);    
         }
     }
-    gpu.saveRamStates();
-    gpu.PrintRAMstates();      
+    gpu.PrintRam(Serial);      
     gpu.Set2DObjects(ui.blockObject->shapeList);
     Serial.print("Added "); Serial.print(gpu.Get2DObjects()->size()); Serial.println(" 2D objects to GPU");
     gpu.Render();

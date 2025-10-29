@@ -48,7 +48,7 @@ void mouseDrag(int16_t x, int16_t y){
 
 size_t Console::write(uint8_t data, bool useFrameBuffer)
 {
-    return write(data, textColor, backgroundColor, true, useFrameBuffer);
+    return write(data, textColor, consoleBackgroundColor, true, useFrameBuffer);
 }
 size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clearBackround, bool useFrameBuffer)
 {
@@ -66,8 +66,7 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
         return 0; 
         
     }
-    gpu.GetTextBuffer()->Add(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, data, color);
-
+    gpu.GetTextBuffer()->Add(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, data, color, backgroundColor, clearBackround);
     //graphics.drawText(_cursorX,_cursorY, (char)data, color, backgroundColor, clearBackround, useFrameBuffer);
     
     if(_consoleRunning && !useFrameBuffer) {
@@ -94,7 +93,7 @@ size_t Console::write(const uint8_t *buffer, size_t size)
 {
     //we want to write to a buffer, and then push the buffer of pixels out
     for(size_t idx = 0; idx < size; idx++)
-        write(buffer[idx], textColor, backgroundColor, true, false);
+        write(buffer[idx], textColor, consoleBackgroundColor, true, false);
 
     #ifdef DOUBLE_BUFFER
     //graphics.setReady();
@@ -256,7 +255,7 @@ void Console::_drawTextFromRam()
         bool lineHasText = false;
         uint16_t lineLength =  min(endPos - (pos + (line * (charsPerLine ))), charsPerLine );
         memset(buf, 0, charsPerLine + 1);
-        memset(lineBuf,backgroundColor, graphics.settings.charHeight * graphics.settings.screenWidth);
+        memset(lineBuf,consoleBackgroundColor, graphics.settings.charHeight * graphics.settings.screenWidth);
         memset(colorBuf, textColor,sizeof(colorBuf));
         //for(uint16_t idx = 0; idx < charsPerLine; idx++){
         programmer.ReadBytes((pos + (line * (charsPerLine ))) | (1 << 19), (uint8_t*)buf, lineLength );
@@ -757,7 +756,7 @@ void Console::printDiskInfo()
     uint32_t volumesize;
     memset(_scratch.bytes,0,sizeof(_scratch));
     sprintf(_scratch.text, "Volume type is:    FAT%d", volume.fatType());
-    graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, backgroundColor);
+    graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, consoleBackgroundColor);
     write(10);
     
     volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
@@ -770,7 +769,7 @@ void Console::printDiskInfo()
     }else{
         sprintf(_scratch.text, "Volume size        %lu GB", volumesize/(1024*1024));
     }
-    graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, backgroundColor);
+    graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, consoleBackgroundColor);
     write(10);
     
     console.SetEchoMode(true);
@@ -853,6 +852,7 @@ size_t Console::println(void)
 {
     return write(10);
 }
+
 
 size_t Console::print(char c)
 {

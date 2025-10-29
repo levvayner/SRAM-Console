@@ -243,8 +243,7 @@ void drawBlocks(commandRequest request){
                 y + blockHeight,
                 FillStyle::Fill
             );
-            //blockTexture = new Texture2D(1,1, Color::BRICK);
-
+            
             // create a local GraphicsObject2D (will take ownership of rect pointer)
             GraphicsObject2D localObj(rect, color);
             ui.blockObject->shapeList->push_back(std::move(localObj));
@@ -252,23 +251,12 @@ void drawBlocks(commandRequest request){
             // gpu.PrintRAMstates();      
             
             //gpu.Add2DObject(localObj);
-            //Serial.print("["); Serial.print(x * y + x); Serial.print("] ");
-            // move the local into the list so the move ctor runs
-            //blockObject->shapeList->push_back(std::move(localObj));
-            //GraphicsObject2D localObj(rect, graphics.settings.backgroundColor);
-            //gpu.Add2DObject(GraphicsObject2D(new Rectangle2D(x,y,x+blockWidth, y+blockHeight,FillStyle::Fill), color));
-            //memset(block, color, blockWidth * blockHeight);
+            
             memset(label,0,4);
             sprintf(label, "%i", color);
-            // auto line = y/blockHeight;
-            // auto row = x/blockWidth;
             console.SetPosition(x + graphics.settings.charWidth,y + graphics.settings.charHeight);
-            console.write(label,strlen(label));
-            //gpu.GetTextBuffer()->AddString(row,line,label,color ^ 0xFF);
-            //graphics.drawTextToBuffer(label, block, blockWidth, color ^ 0xFF);
-            //graphics.drawBuffer(x, y, blockWidth, blockHeight, block);            
-            //graphics.fillRectangle(x,y, blockWidth, blockHeight,color);                
-            //graphics.drawText(x + 2, y + 2, label,color ^ 0xFF, color, false);
+            console.write(label,strlen(label), color ^ 0xFF, color,true);
+            //gpu.GetTextBuffer()->AddString(row,line,label,color ^ 0xFF);           
             color--;
         }               
     }
@@ -311,7 +299,7 @@ void drawBlocks(commandRequest request){
 
 void graphicsTest(commandRequest request){
     int numOfObjects = 100;
-    graphics.clear();
+    gpu.ClearScreen();
     char buf[128];
 
     graphics.clear();
@@ -483,8 +471,7 @@ void graphicsTest(commandRequest request){
     graphics.setReady();
     #endif
     graphics.clear();
-    gpu.saveRamStates();
-    gpu.PrintRAMstates();
+    gpu.PrintRam(Serial);
 
     console.SetEchoMode(false);
     console.SetPosition(0,0);
@@ -658,6 +645,7 @@ void UI::PrintMenu(bool force) {
         Serial.print(F("x"));Serial.println(graphics.settings.screenHeight);
 
     gpu.SetRenderMode(rmText);
+    gpu.ClearScreen();
     console.SetPosition();
     console.println("VGA TOOL   -   v 0.2.0");
 	console.println("---------------------------------");
@@ -681,8 +669,8 @@ void UI::PrintMenu(bool force) {
     #ifdef DOUBLE_BUFFER
     gpu.Render();
     #endif
-    gpu.saveRamStates();
-    gpu.PrintRAMstates();  
+    gpu.PrintRam(Serial);  
+    gpu.PrintRam(console);
 
    needPrintMenu = false;
 }

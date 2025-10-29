@@ -41,8 +41,7 @@ void setup() {
         }
     }
     ui.begin();
-    gpu.saveRamStates();
-    gpu.PrintRAMstates();
+    gpu.PrintRam(Serial);
 }
 
 

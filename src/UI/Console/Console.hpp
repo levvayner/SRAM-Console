@@ -53,7 +53,7 @@ union ScratchArea{
 };
 
 void consoleDrawCursor();
-class Console : Print{
+class Console : public Print{
 
     public:
     void run(bool blocking = true);
@@ -65,12 +65,12 @@ class Console : Print{
     virtual size_t write(uint8_t data, byte color, byte backgroundColor, bool clearBackround = false, bool useFrameBuffer = false);
     virtual size_t write(uint8_t data, Color color, Color backgroundColor, bool clearBackround = false, bool useFrameBuffer = false);
     virtual size_t write(uint8_t data, bool useFrameBuffer);
-    virtual inline  size_t write(uint8_t data){ return write(data,textColor, backgroundColor, true, false);}
-    virtual size_t write(const char *str) {
+    virtual inline  size_t write(uint8_t data){ return write(data,textColor, consoleBackgroundColor, true, false);}
+    size_t write(const char *str) {
       if (str == NULL) return 0;
       return write((const uint8_t *)str, strlen(str));
     }
-    virtual size_t write(const uint8_t *buffer, size_t size);
+    virtual size_t write(const uint8_t *buffer, size_t size) override;
     virtual size_t write(const char *buffer, size_t size) {
       return write((const uint8_t *)buffer, size);
     }
@@ -80,7 +80,7 @@ class Console : Print{
     
     size_t print(const __FlashStringHelper *);
     inline size_t print(const String &str){ return write(str.c_str());}
-    size_t print(const char[]);    
+    virtual size_t print(const char[]);    
     size_t print(char);
     size_t print(unsigned char, int = DEC);
     size_t print(int, int = DEC);
@@ -118,11 +118,11 @@ class Console : Print{
     virtual inline void SetPosition(int x = 0, int y = 0){ _cursorX = x; _cursorY = y;}
     virtual inline void SetScrollPosition(int offset = 0){ _scrollOffset = offset; }
     virtual inline byte GetColor(){return textColor; }
-    virtual inline byte GetBackgroundColor(){return backgroundColor; }
+    virtual inline byte GetBackgroundColor(){return consoleBackgroundColor; }
     virtual inline void SetColor(byte color){ textColor = color;}
     virtual inline void SetColor(Color color){ textColor = color.ToByte();}
-    virtual inline void SetBackgroundColor(byte color){  backgroundColor = color;}
-    virtual inline void SetBackgroundColor(Color color){ backgroundColor = color.ToByte();}
+    virtual inline void SetBackgroundColor(byte color){  consoleBackgroundColor = color;}
+    virtual inline void SetBackgroundColor(Color color){ consoleBackgroundColor = color.ToByte();}
     //virtual void processUSBKey(); //
     //virtual ConsoleKeyType processPS2Key(uint8_t ps2KeyCode); //
     inline bool IsConsoleRunning(){ return _consoleRunning;}
@@ -183,7 +183,7 @@ class Console : Print{
 
     protected:
     byte textColor = Color::GREEN;
-    byte backgroundColor = 0;
+    byte consoleBackgroundColor = 0;
     uint16_t _cursorX = 0;
     uint16_t _cursorY = 0;
     uint32_t charsPerLine = 72;//  floor(graphics.settings.screenWidth / graphics.settings.charWidth);
