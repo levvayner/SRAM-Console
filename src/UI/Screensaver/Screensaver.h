@@ -1,12 +1,12 @@
 #ifndef SCREEN_SAVER_H
 #define SCREEN_SAVER_H
-#include "../lib/DueHardwareVGA/src/hw/video/SRAM.h"
-#include "../lib/DueHardwareVGA/src/hw/video/VRAM.h"
-#include "../lib/DueHardwareVGA/src/hw/video/GPU.h"
+#include "sw/GPU.h"
 
 extern GPU gpu;
 //extern VRAM graphics;
 #define MAX_COLLISSIONS 10
+#define MIN_BLOCK_SIZE 30
+#define SIZE_RANGE 20
 
 /// @brief Screen saver draws pipes.
 /// Pipes are 4 x 4 pixels, so screen is divided in to 432/4 x 240/4 108 x 60
@@ -16,6 +16,7 @@ public:
     void start();
     void step();
     void stop();
+    void restart();
 
 protected:
     inline uint32_t x(){
@@ -32,12 +33,12 @@ private:
     uint32_t _currentPosition = 0;
     uint8_t _currentDirection = 0; // 0 -up, 1 - right, 2 - down, 3 - left
     uint8_t _color;
-    const uint8_t tileWidth = 25;
-    const uint8_t tileHeight = 25;
+    uint8_t tileWidth = 25;
+    uint8_t tileHeight = 25;
     uint16_t _xTiles, _yTiles;
 
     
-    Graphics2D* blockObject = nullptr;
+    //Graphics2D* blockObject = nullptr;
 
     unsigned long _lastStepTime = 0;
     unsigned long stepDuration = 50;

@@ -42,6 +42,7 @@ enum KeyInputMode{
 
 extern SRAM programmer;
 extern VRAM graphics;
+extern GPU gpu;
 extern ProgramRom programRom;
 extern KeyboardController keyboardUsb;
 extern ps2KeyboardController ps2Controller;
@@ -57,6 +58,7 @@ class Console : Print{
     public:
     void run(bool blocking = true);
     void loop();
+    void begin();
     virtual void end();
     inline String path(){ return _path;}
     inline void setPath(const char* path){ _path = path;}

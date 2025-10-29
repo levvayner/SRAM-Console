@@ -21,7 +21,7 @@ uint8_t steps = 0;
 
 void setup() {
     Serial.begin(115200);
-    graphics.begin();
+    graphics.begin(0,0,Color::GRAY);
     pinMode(PIN_LED, OUTPUT);
     
     keyboard.begin(Serial,50);
@@ -29,14 +29,20 @@ void setup() {
     mouse.begin();
     
 	digitalWrite(PIN_LED, LOW);
-	Serial.println("");
-	Serial.println("Starting SRAM tool");
+    if(Serial.availableForWrite()){
+        Serial.println("");
+        Serial.println("Starting SRAM tool");
+    }
     //graphics.begin();
     editor.clear();    
     if(!SD.begin(10)){        
-        Serial.println("Failed to start SD");
+        if(Serial.availableForWrite()){
+            Serial.println("Failed to start SD");
+        }
     }
     ui.begin();
+    gpu.saveRamStates();
+    gpu.PrintRAMstates();
 }
 
 

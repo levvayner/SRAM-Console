@@ -54,7 +54,8 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
 {
     //auto pos = 1 << 19 | GetDataPos();
     EraseCursor();
-    //Serial.print("Console: Writing data: "); Serial.print(data); Serial.print(" at position: 0x"); Serial.println(pos, HEX);
+    // Serial.print("Console: Writing data: "); Serial.print(data); Serial.print(" at ("); Serial.print(_cursorX);
+    // Serial.print(", "); Serial.println(_cursorY);
     if(data == 10 /* && _consoleRunning*/ ){
        // programmer.WriteByte( pos,data); //write to data space
         AdvanceCursor(true);
@@ -65,8 +66,9 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
         return 0; 
         
     }
+    gpu.GetTextBuffer()->Add(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, data, color);
 
-    graphics.drawText(_cursorX,_cursorY, (char)data, color, backgroundColor, clearBackround, useFrameBuffer);
+    //graphics.drawText(_cursorX,_cursorY, (char)data, color, backgroundColor, clearBackround, useFrameBuffer);
     
     if(_consoleRunning && !useFrameBuffer) {
         //Serial.print("Stored command to 0x"); Serial.println(pos,HEX);
@@ -114,9 +116,10 @@ void Console::run(bool blocking )
     }
     keyboard.onKeyDown = consoleProcessKey;
     
+    gpu.SetRenderMode(RenderMode::rmText);
     //    _cursorTimer = Timer.getAvailable().attachInterrupt(consoleDrawCursor);
     Serial.println("Started console. Type `exit` or Ctrl + R to quit");
-    charsPerLine = graphics.settings.screenWidth / graphics.settings.charWidth;
+    
     clear();    
     if(blocking){
         _echoPrompt = true;
@@ -200,6 +203,11 @@ void Console::loop()
         //mouse.update();
     }
     //mouse.update();
+}
+
+void Console::begin()
+{
+    charsPerLine = graphics.settings.screenWidth / graphics.settings.charWidth;
 }
 
 void Console::end()
@@ -489,7 +497,7 @@ inline void Console::processKey(uint8_t keyCode)
                 EraseCursor();
                 //_printChar(0, _cursorX, _cursorY); // get rid of cursor
                 ReverseCursor();
-                graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, Color::BLACK);                
+                graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, graphics.settings.backgroundColor);                
             }
             return;
         }
@@ -516,19 +524,19 @@ bool Console::AdvanceCursor(bool nextLine)
     //see if we can move over one pixel to the right
     if (_cursorX + graphics.settings.charWidth < graphics.settings.charWidth * charsPerLine && !nextLine)
     {
-        //Serial.println ("**\tAdvancing char");
+        //Serial.print ("**\tAdvancing char to "); Serial.println(_cursorX + graphics.settings.charWidth);
         _cursorX += graphics.settings.charWidth;
         return false;
     }
     //otherwise advance to next available line 
     if(!nextLine && _consoleRunning){
         //Serial.println ("**\tAdvancing line");
-        Serial.print("Advancing to new line, injecting NL into data cache at address 0x"); Serial.println(GetDataPos(), HEX);
+        //Serial.print("Advancing to new line, injecting NL into data cache at address 0x"); Serial.println(GetDataPos(), HEX);
         // programmer.WriteByte( 1 << 19 | (GetDataPos() + 1) ,10,1);      
         // programmer.ReadByte(0); //turn off 19th bit   
                  
     }
-    
+    //Serial.print("Reset cursor x");
     _cursorX = 0;
     // if(nextLine && _consoleRunning)
     // {
@@ -691,8 +699,9 @@ void Console::DrawCursor()
 {
     if(!_cursorVisible) return;
     //if not visible, hide, otherwise if visible show
-    memset(_scratch.bytes, _cursorState ? Color::WHITE : Color::BLACK, graphics.settings.charWidth);
-    graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
+    memset(_scratch.bytes, _cursorState ? Color::WHITE : graphics.settings.backgroundColor, graphics.settings.charWidth);
+    gpu.GetTextBuffer()->UpdateCharUnderline(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, _cursorState);
+    //graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
     //graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
     #ifdef DOUBLE_BUFFER
     graphics.setReady();
@@ -703,7 +712,8 @@ void Console::EraseCursor()
 {
     if(!_cursorVisible) return;
     memset(_scratch.bytes, 0, graphics.settings.charWidth);
-    graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
+    gpu.GetTextBuffer()->UpdateCharUnderline(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, _cursorState);
+    // graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
     #ifdef DOUBLE_BUFFER
     graphics.setReady();
     #endif

@@ -1,29 +1,29 @@
 #include "Screensaver.h"
+#include "../UI.h"
 #include <stdlib.h>
 #include <utility> 
-
+extern UI ui;
 
 void ScreenSaver::start()
 {
+    srand(millis());
+    tileWidth = rand() % SIZE_RANGE + MIN_BLOCK_SIZE; //30-50
+    tileHeight = rand() % SIZE_RANGE + MIN_BLOCK_SIZE; //30-50
     _xTiles = (graphics.settings.screenWidth / tileWidth);
     _yTiles = (graphics.settings.screenHeight / tileHeight);
     uint32_t gridSize = _xTiles * _yTiles;
 
-    if (blockObject != nullptr) {
-        delete blockObject;
-        blockObject = nullptr;
+    if (ui.blockObject != nullptr) {
+        delete ui.blockObject;
+        ui.blockObject = nullptr;
     }
-    blockObject = new Graphics2D();
+    ui.blockObject = new Graphics2D();
     
     _frameBuffer = new uint8_t[gridSize];
     _currentPosition =  ((_yTiles / 2) * _xTiles  - (_xTiles / 2)); //center?
-    // Serial.print(F("Set up screen tiles ")); Serial.print(_xTiles); Serial.print("x"); Serial.println(_yTiles);
-    // Serial.print("Using bank #"); Serial.println(gpu.activeBank() ? 1 : 0);
-    //uint8_t gridColor = rand()%255;
-    //graphics.fillRectangle(0,0,graphics.settings.screenWidth, graphics.settings.screenHeight, gridColor);
-    //blockTexture = new Texture2D(tileWidth, tileHeight);
-    //blockTexture->Fill(Color::DARK_GREEN);
-
+    Serial.print(F("Set up screen tiles ")); Serial.print(_xTiles); Serial.print("x"); Serial.println(_yTiles);
+    Serial.print("Using bank #"); Serial.println(gpu.activeBank() ? 1 : 0);
+    
     Rectangle2D* rect = nullptr;
    // Texture2D* blockTexture = nullptr;
 
@@ -43,24 +43,19 @@ void ScreenSaver::start()
             GraphicsObject2D localObj(rect, graphics.settings.backgroundColor);
             
 
-            //Serial.print("["); Serial.print(_xTiles * line + idx); Serial.print("] ");
+            Serial.print("["); Serial.print(_xTiles * line + idx); Serial.print("] ");
             // move the local into the list so the move ctor runs
-            blockObject->shapeList->push_back(std::move(localObj));
-
-            // avoid deleting rect here — ownership moved into the stored object
-            // gpu.saveRamStates();
-            // gpu.PrintRAMstates();
+            ui.blockObject->shapeList->push_back(std::move(localObj));
+            gpu.saveRamStates();
+            gpu.PrintRAMstates();    
         }
     }
     gpu.saveRamStates();
     gpu.PrintRAMstates();      
-    Serial.print("Created "); Serial.print(blockObject->shapeList->size()); Serial.println(" block objects for screen grid");
-    Serial.print("Size of block object shape list: "); Serial.println(sizeof(blockObject->shapeList) * sizeof(blockObject->shapeList->begin().node->value));
-    gpu.Set2DObjects(blockObject->shapeList);
-    Serial.print("Graphics2D shape list: "); Serial.println(sizeof(gpu.Get2DObjects()));
+    gpu.Set2DObjects(ui.blockObject->shapeList);
     Serial.print("Added "); Serial.print(gpu.Get2DObjects()->size()); Serial.println(" 2D objects to GPU");
     gpu.Render();
-    srand(millis());
+    
     _currentDirection = (uint8_t)((rand()%4));
     _color = (uint8_t)((rand()%256));
     _collisionConter = 0;
@@ -77,10 +72,8 @@ void ScreenSaver::step()
     bool forceTurn = false;
     bool collissionOccured = false;
     if(millis() - _lastStepTime < stepDuration) return;
-    if(_collisionConter >= MAX_COLLISSIONS) {
-        stop();
-        start();
-        return;
+    if(_collisionConter >= MAX_COLLISSIONS) {        
+        return restart();
     }
     // Serial.print("Stepping screen saver. Direction: ");
     // Serial.println(_currentDirection == 0 ? "up" : _currentDirection == 1 ? "right" : _currentDirection == 2 ? "down" : _currentDirection == 3 ? "right" :  "UNKNOWN");
@@ -212,11 +205,21 @@ void ScreenSaver::step()
    
     _lastStepTime = millis();
 }
+void ScreenSaver::restart(){
+    delete[] _frameBuffer;
+    _frameBuffer = nullptr;
+    _running = false;
+    gpu.ClearObjects();
+    start();
+}
 
 void ScreenSaver::stop()
 {
     delete[] _frameBuffer;
     _frameBuffer = nullptr;
     _running = false;
+    gpu.ClearObjects();
+    gpu.Render();
+    while(graphics.isWaiting());
     gpu.ClearScreen();
 }

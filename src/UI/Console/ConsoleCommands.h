@@ -391,6 +391,7 @@ void listFiles(const char * path, int indent,  char*  flags)
         console.SetColor(color);
         if(console.GetPosition().x + (strlen(_scratch.text) * graphics.settings.charWidth) > graphics.settings.screenWidth)
             console.write(10); // if text would overflow, go to next line
+        Serial.println(_scratch.text);
         console.write(_scratch.text);
         console.SetColor(fgColor);
         // programmer.WriteBytes(1 << 19 | console.GetDataPos(), _scratch.bytes, strlen(_scratch.text));

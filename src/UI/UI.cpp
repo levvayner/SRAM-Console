@@ -1,5 +1,6 @@
 
 #include "UI.h"
+#define UI_SOURCE "UI"
 UI ui;
 
 char cmdBuf[256];
@@ -22,7 +23,6 @@ void uiProcessClick(MouseClickArgs args){
     Serial.println();
 }
 
-#define UI_SOURCE "UI"
 void readMemory(commandRequest request){
     
     //String addrS = _getResponse(port);
@@ -83,10 +83,11 @@ void printMemory(commandRequest request){
     #endif
 }
 void clearScreen(commandRequest request){
-    ui.ClearScreen();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
+    gpu.ClearScreen();
+    //ui.ClearScreen();
+    // #ifdef DOUBLE_BUFFER
+    // graphics.setReady();
+    // #endif
 
     Serial.println();
 }
@@ -170,6 +171,10 @@ void drawVerticalLines(commandRequest request){
 void showScreenSaver(commandRequest request){
     //screenSaver
     ScreenSaver saver;
+    gpu.SetRenderMode(RenderMode::rmBuffered);
+    gpu.GetTextBuffer()->Clear();
+    auto bufLength = gpu.GetTextBuffer()->width * gpu.GetTextBuffer()->height;
+    gpu.GetTextBuffer()->text = new char[bufLength];
     console.HideCursor();
     //char c = '\0';
     saver.start();
@@ -182,14 +187,14 @@ void showScreenSaver(commandRequest request){
         char key = keyboard.getKey();
             
         if(key == 'q' || key == 'Q'){
-            saver.stop();         
+            saver.stop();              
             break;
         }
         
     }
-    console.HideCursor();
     //keyboard.SetMode(true); 
-    ui.PrintMenu();   
+    ui.PrintMenu(true);  
+    
 }
 void setGraphicsRenderMode(commandRequest request){
     
@@ -213,28 +218,62 @@ void setGraphicsRenderMode(commandRequest request){
 void drawBlocks(commandRequest request){
     int blockWidth = floor(graphics.settings.screenWidth / 16); //rather push off screen a bit
     int blockHeight = ceil((graphics.settings.screenHeight - 12) / 16);
-    //Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
-    graphics.clear(0,0,graphics.settings.screenWidth, graphics.settings.screenHeight);
-    byte color = 0xFF;
+
+    Serial.print("Setting up blocks with width "); Serial.print(blockWidth); Serial.print(" and height "); Serial.println(blockHeight);
+    //graphics.clear(0,0,graphics.settings.screenWidth, graphics.settings.screenHeight);
+    uint8_t color = 0xFF;
     //byte colors[blockWidth];
     char label[4];
+    Rectangle2D* rect = nullptr;
+    ui.blockObject = new Graphics2D();
+    //auto textBuffer = gpu.GetTextBuffer();
+    //if(textBuffer)
+    gpu.SetRenderMode(rmText);
+    gpu.GetTextBuffer()->Clear();
+    //gpu.ClearScreen();
     
     unsigned long  startTime = millis();
-    byte block[blockWidth * blockHeight ];
+    //byte block[blockWidth * blockHeight ];
     for(int x = 1; x < graphics.settings.screenWidth; x+= blockWidth){
         for(int y=1;y < blockHeight * 16; y+= blockHeight){ 
-            memset(block, color, blockWidth * blockHeight);
+            rect = new Rectangle2D(
+                x,
+                y,
+                x + blockWidth,
+                y + blockHeight,
+                FillStyle::Fill
+            );
+            //blockTexture = new Texture2D(1,1, Color::BRICK);
+
+            // create a local GraphicsObject2D (will take ownership of rect pointer)
+            GraphicsObject2D localObj(rect, color);
+            ui.blockObject->shapeList->push_back(std::move(localObj));
+            // gpu.saveRamStates();
+            // gpu.PrintRAMstates();      
+            
+            //gpu.Add2DObject(localObj);
+            //Serial.print("["); Serial.print(x * y + x); Serial.print("] ");
+            // move the local into the list so the move ctor runs
+            //blockObject->shapeList->push_back(std::move(localObj));
+            //GraphicsObject2D localObj(rect, graphics.settings.backgroundColor);
+            //gpu.Add2DObject(GraphicsObject2D(new Rectangle2D(x,y,x+blockWidth, y+blockHeight,FillStyle::Fill), color));
+            //memset(block, color, blockWidth * blockHeight);
             memset(label,0,4);
             sprintf(label, "%i", color);
-            graphics.drawTextToBuffer(label, block, blockWidth, color ^ 0xFF);
-            graphics.drawBuffer(x, y, blockWidth, blockHeight, block);            
+            // auto line = y/blockHeight;
+            // auto row = x/blockWidth;
+            console.SetPosition(x + graphics.settings.charWidth,y + graphics.settings.charHeight);
+            console.write(label,strlen(label));
+            //gpu.GetTextBuffer()->AddString(row,line,label,color ^ 0xFF);
+            //graphics.drawTextToBuffer(label, block, blockWidth, color ^ 0xFF);
+            //graphics.drawBuffer(x, y, blockWidth, blockHeight, block);            
             //graphics.fillRectangle(x,y, blockWidth, blockHeight,color);                
             //graphics.drawText(x + 2, y + 2, label,color ^ 0xFF, color, false);
             color--;
         }               
     }
     #ifdef DOUBLE_BUFFER
-    graphics.setReady();
+    //graphics.setReady();
 
     // for(int x = 1; x < graphics.settings.screenWidth; x+= blockWidth){
     //     for(int y=1;y < blockHeight * 16; y+= blockHeight){ 
@@ -250,11 +289,12 @@ void drawBlocks(commandRequest request){
     // }
     #endif
 
+    gpu.Set2DObjects(ui.blockObject->shapeList);
 
     //graphics.render();
     Serial.print(F("Blocks : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
     
-    console.SetPosition(3, graphics.settings.screenHeight - 9);
+    console.SetPosition(3, graphics.settings.screenHeight -graphics.settings.charHeight);
     console.write("8 ", 2,Color::RED, true);
     console.write("b", 1,Color::GREEN, true);
     console.write("i", 1,Color::GOLD, true);
@@ -262,6 +302,11 @@ void drawBlocks(commandRequest request){
 
     console.SetPosition(70, graphics.settings.screenHeight - 9);
     console.write("256 Available Colors", 20,Color::WHITE, true);
+    gpu.Render();
+    #ifdef DEBUG_GPU
+    gpu.saveRamStates();
+    gpu.PrintRAMstates();
+    #endif
 }
 
 void graphicsTest(commandRequest request){
@@ -438,6 +483,8 @@ void graphicsTest(commandRequest request){
     graphics.setReady();
     #endif
     graphics.clear();
+    gpu.saveRamStates();
+    gpu.PrintRAMstates();
 
     console.SetEchoMode(false);
     console.SetPosition(0,0);
@@ -504,7 +551,7 @@ void runEditor(commandRequest request){
 }
 
 void showHelp(commandRequest request){
-    ui.PrintMenu();
+    ui.PrintMenu(true);
     #ifdef DOUBLE_BUFFER
     graphics.setReady();
     #endif
@@ -530,17 +577,19 @@ void reboot(commandRequest request){
 
 UI::UI()
 {
-    console.SetColor(Color::GREEN);
-    console.SetBackgroundColor(Color::BLACK);
+    
 }
 
 
 UI::~UI()
 {
+    delete blockObject;
+    blockObject = nullptr;
 }
 
 void UI::begin()
 {
+    
     commands.registerCommand(UI_SOURCE,"read", "",readMemory, "read a byte from memory");
     commands.registerCommand(UI_SOURCE,"write", "",writeMemory, "write a byte to memory");
     //commands.registerCommand(UI_SOURCE,"erase", "",writeMemory, "e");
@@ -565,6 +614,15 @@ void UI::begin()
     #endif
     keyboard.onKeyDown = uiProcessKey;
     mouse.onClick = uiProcessClick;
+    console.begin();
+    console.SetColor(graphics.settings.foregroundColor);
+    console.SetBackgroundColor(graphics.settings.backgroundColor);
+    
+    console.SetBackgroundColor(graphics.settings.backgroundColor);
+    console.SetColor(graphics.settings.foregroundColor);
+    console.clear();
+    gpu.SetRenderMode(RenderMode::rmText);
+
     
 }
 
@@ -578,8 +636,8 @@ void UI::blinkLED() {
 	}
 }
 
-void UI::PrintMenu() {
-	if (!needPrintMenu) return; 
+void UI::PrintMenu(bool force) {
+	if (!needPrintMenu && !force) return; 
     Serial.println(F("VGA TOOL   -   v 0.2.0"));
 	Serial.println(F("--------------------------------"));
     auto registeredCommands = commands.getCommands();
@@ -599,6 +657,7 @@ void UI::PrintMenu() {
     Serial.print(F("Sreen resoltion: ")); Serial.print(graphics.settings.screenWidth);
         Serial.print(F("x"));Serial.println(graphics.settings.screenHeight);
 
+    gpu.SetRenderMode(rmText);
     console.SetPosition();
     console.println("VGA TOOL   -   v 0.2.0");
 	console.println("---------------------------------");
@@ -616,27 +675,16 @@ void UI::PrintMenu() {
         console.println();
     }
 	console.println("--------------------------------");
-    console.print("Sreen resoltion: "); console.print(graphics.settings.screenWidth);
+    console.print("Screen resoltion: "); console.print(graphics.settings.screenWidth);
         console.print("x");console.println(graphics.settings.screenHeight);
     
     #ifdef DOUBLE_BUFFER
-    graphics.setReady();
+    gpu.Render();
     #endif
+    gpu.saveRamStates();
+    gpu.PrintRAMstates();  
 
-    Serial.print("Size of Point2D: "); Serial.println(sizeof(Point2D));
-    Serial.print("Size of Shape2D: "); Serial.println(sizeof(Shape2D));
-    Serial.print("Size of Circle2D: "); Serial.println(sizeof(Circle2D));
-    Serial.print("Size of Oval2D: "); Serial.println(sizeof(Oval2D));
-    Serial.print("Size of Arc2D: "); Serial.println(sizeof(Arc2D));
-    Serial.print("Size of Line2D: "); Serial.println(sizeof(Line2D));
-    Serial.print("Size of Triangle2D: "); Serial.println(sizeof(Triangle2D));
-    Serial.print("Size of Rectangle2D: "); Serial.println(sizeof(Rectangle2D));
-    Serial.print("Size of Polygon2D: "); Serial.println(sizeof(Polygon2D));
-    Serial.print("Size of Texture2D: "); Serial.println(sizeof(Texture2D));
-    Serial.print("Size of GraphicsObject2D: "); Serial.println(sizeof(GraphicsObject2D));
-    Serial.print("Size of Graphics2D: "); Serial.println(sizeof(Graphics2D));
-
-	needPrintMenu = false;
+   needPrintMenu = false;
 }
 
 void UI::DumpRAM() {
@@ -712,12 +760,12 @@ void UI::ClearScreen()
 {
     unsigned long startTime = millis();
 	Serial.print(F("Clearning screen"));    
-    
-    graphics.clear();
+    gpu.ClearScreen();
+    //graphics.clear();
     Serial.print(F(" : Done in ")); Serial.print((millis() - startTime));Serial.println(" ms.");
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
+    // #ifdef DOUBLE_BUFFER
+    // graphics.setReady();
+    // #endif
 	
 }
 

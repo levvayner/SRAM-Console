@@ -7,8 +7,9 @@
 // #define VERIFY 1
 #include "Console/Console.hpp"
 #include "Editor/Editor.hpp"
-#include "Screensaver.h"
-#include "ScreensaverMandelbrot.h"
+#include "sw/GPU.h"
+#include "Screensaver/Screensaver.h"
+#include "Screensaver/ScreensaverMandelbrot.h"
 extern SRAM programmer;
 extern VRAM graphics;
 extern GPU gpu;
@@ -37,7 +38,7 @@ public:
 	void blinkLED();
 
 	
-	void PrintMenu();
+	void PrintMenu(bool force = false);
 
 	void DumpRAM();
 	void ClearScreen();
@@ -49,6 +50,7 @@ public:
         _programmingMode = mode;
     }
 
+     Graphics2D* blockObject = nullptr;
 private:
     template <typename TPort>
     void _processInput(TPort port);
@@ -65,6 +67,8 @@ private:
     unsigned long lastUpdated = 0;
     unsigned long checkingTime = 0;
     bool _programmingMode = false;
+
+   
 
 };
 #endif
