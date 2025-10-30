@@ -26,6 +26,13 @@ protected:
         return _currentPosition / _xTiles;
     }
 
+    static inline void waitUntilIdle(unsigned long timeoutMs = 500) {
+    unsigned long t0 = millis();
+    while (graphics.isWaiting() && (millis() - t0) < timeoutMs) {
+        delay(1);
+    }
+}
+
 
 private:    
     uint8_t * _frameBuffer ;
@@ -33,9 +40,10 @@ private:
     uint32_t _currentPosition = 0;
     uint8_t _currentDirection = 0; // 0 -up, 1 - right, 2 - down, 3 - left
     uint8_t _color;
-    uint8_t tileWidth = 25;
-    uint8_t tileHeight = 25;
+    uint8_t tileWidth = 40;
+    uint8_t tileHeight = 30;
     uint16_t _xTiles, _yTiles;
+    bool _useRandomSize = false;
 
     
     //Graphics2D* blockObject = nullptr;

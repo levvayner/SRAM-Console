@@ -116,31 +116,31 @@ void Console::run(bool blocking )
     keyboard.onKeyDown = consoleProcessKey;
     
     gpu.SetRenderMode(RenderMode::rmText);
+    gpu.ClearScreen();
+    SetPosition(0,0);
     //    _cursorTimer = Timer.getAvailable().attachInterrupt(consoleDrawCursor);
-    Serial.println("Started console. Type `exit` or Ctrl + R to quit");
+    println("Started console. Type `exit` or Ctrl + R to quit");
     
     clear();    
     if(blocking){
         _echoPrompt = true;
         
         if(!_initialized){
-            Serial.print("Initializing SD");
+            print("Initializing SD");
             _initSD();
-            Serial.println("  done");
+            println("  done");
         }
         //clearData(); 
-        _cursorX = 0;
-        _cursorY = 0;
         //SetEchoMode(false);
         //SetEchoMode(true);
     }
     _needEcho = true;
-    Serial.print("Initializing mouse");            
+    print("Initializing mouse");            
     mouse.onMouseMove = mouseMove;
     mouse.onClick = mouseClick;
     mouse.onMouseDrag = mouseDrag;
     mouse.RequestRedraw();
-    Serial.println("  done");
+    println("  done");
     ShowCursor();
 }
 
@@ -216,10 +216,11 @@ void Console::end()
     commands.clearCommands(CONTEXT_CONSOLE);
     keyboard.onKeyDown = nullptr;
     //keyboard.SetMode(false);
-    if(_cursorVisible){
-        _cursorTimer->detachInterrupt();
-        _cursorTimer = nullptr;
-    }
+    HideCursor();
+    // if(_cursorVisible){
+    //     _cursorTimer->detachInterrupt();
+    //     _cursorTimer = nullptr;
+    // }
     mouse.end();
 }
 
@@ -703,7 +704,7 @@ void Console::DrawCursor()
     //graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
     //graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
     #ifdef DOUBLE_BUFFER
-    graphics.setReady();
+    gpu.Render();
     #endif
 }
 
@@ -714,7 +715,7 @@ void Console::EraseCursor()
     gpu.GetTextBuffer()->UpdateCharUnderline(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, _cursorState);
     // graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
     #ifdef DOUBLE_BUFFER
-    graphics.setReady();
+    gpu.Render();
     #endif
 }
 

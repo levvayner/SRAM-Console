@@ -8,23 +8,30 @@ void ScreenSaver::start()
 {
     gpu.ClearScreen();
     srand(millis());
-    tileWidth = rand() % SIZE_RANGE + MIN_BLOCK_SIZE; //30-50
-    tileHeight = rand() % SIZE_RANGE + MIN_BLOCK_SIZE; //30-50
+    if(_useRandomSize){
+        tileWidth = rand() % SIZE_RANGE + MIN_BLOCK_SIZE; //30-50
+        tileHeight = rand() % SIZE_RANGE + MIN_BLOCK_SIZE; //30-50
+    }
     _xTiles = (graphics.settings.screenWidth / tileWidth);
     _yTiles = (graphics.settings.screenHeight / tileHeight);
     uint32_t gridSize = _xTiles * _yTiles;
 
-    if (ui.blockObject != nullptr) {
-        delete ui.blockObject;
-        ui.blockObject = nullptr;
-    }
-    ui.blockObject = new Graphics2D();
+    if (!ui.blockObject) ui.blockObject = new Graphics2D();
+    else ui.blockObject->shapeList->clear();
     
     _frameBuffer = new uint8_t[gridSize];
     _currentPosition =  ((_yTiles / 2) * _xTiles  - (_xTiles / 2)); //center?
-    Serial.print(F("Set up screen tiles ")); Serial.print(_xTiles); Serial.print("x"); Serial.println(_yTiles);
-    Serial.print("Using bank #"); Serial.println(gpu.activeBank() ? 1 : 0);
-    
+    // Serial.print(F("Set up screen tiles ")); Serial.print(_xTiles); Serial.print("x"); Serial.println(_yTiles);
+    // Serial.print("Using bank #"); Serial.println(gpu.activeBank() ? 1 : 0);
+
+    //draw loading screen and switch bank
+    gpu.SetRenderMode(rmText);
+    //center with 6 char offset to left
+    console.SetPosition(graphics.settings.screenWidth / 2 - (graphics.settings.charWidth * 6), graphics.settings.screenHeight / 2);
+    console.write("Loading ...");
+    gpu.Render();        
+    gpu.SetRenderMode(rmBuffered);
+
     Rectangle2D* rect = nullptr;
    // Texture2D* blockTexture = nullptr;
 
@@ -44,16 +51,18 @@ void ScreenSaver::start()
             GraphicsObject2D localObj(rect, graphics.settings.backgroundColor);
             
 
-            Serial.print("["); Serial.print(_xTiles * line + idx); Serial.print("] ");
+            //Serial.print("["); Serial.print(_xTiles * line + idx); Serial.print("] ");
             // move the local into the list so the move ctor runs
             ui.blockObject->shapeList->push_back(std::move(localObj));
-            gpu.PrintRam(Serial);    
+            //gpu.PrintRam(Serial);    
         }
     }
-    gpu.PrintRam(Serial);      
+    //gpu.PrintRam(Serial);      
     gpu.Set2DObjects(ui.blockObject->shapeList);
-    Serial.print("Added "); Serial.print(gpu.Get2DObjects()->size()); Serial.println(" 2D objects to GPU");
+    //Serial.print("Added "); Serial.print(gpu.Get2DObjects()->size()); Serial.println(" 2D objects to GPU");
     gpu.Render();
+    while(graphics.isWaiting());
+    graphics.clear();
     
     _currentDirection = (uint8_t)((rand()%4));
     _color = (uint8_t)((rand()%256));
@@ -214,11 +223,19 @@ void ScreenSaver::restart(){
 
 void ScreenSaver::stop()
 {
-    delete[] _frameBuffer;
-    _frameBuffer = nullptr;
+    if (_frameBuffer) { delete[] _frameBuffer; _frameBuffer = nullptr; }
     _running = false;
+
+    // UI container (usually empty list at this point)
+    if (ui.blockObject) {
+        delete ui.blockObject;      // Graphics2D::~Graphics2D clears & deletes its shapeList
+        ui.blockObject = nullptr;
+    }
+
+    // Let GPU drop the currently displayed objects it moved-into earlier.
     gpu.ClearObjects();
+
     gpu.Render();
-    while(graphics.isWaiting());
+    waitUntilIdle();
     gpu.ClearScreen();
 }

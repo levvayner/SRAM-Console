@@ -173,8 +173,6 @@ void showScreenSaver(commandRequest request){
     ScreenSaver saver;
     gpu.SetRenderMode(RenderMode::rmBuffered);
     gpu.GetTextBuffer()->Clear();
-    auto bufLength = gpu.GetTextBuffer()->width * gpu.GetTextBuffer()->height;
-    gpu.GetTextBuffer()->text = new char[bufLength];
     console.HideCursor();
     //char c = '\0';
     saver.start();
@@ -193,7 +191,7 @@ void showScreenSaver(commandRequest request){
         
     }
     //keyboard.SetMode(true); 
-    ui.PrintMenu(true);  
+    ui.PrintMenu(true);     
     
 }
 void setGraphicsRenderMode(commandRequest request){
@@ -297,226 +295,258 @@ void drawBlocks(commandRequest request){
     #endif
 }
 
-void graphicsTest(commandRequest request){
-    int numOfObjects = 100;
+void waitUntilDone(unsigned long timeoutMs = 400) {
+    unsigned long t0 = millis();
+    while (graphics.isWaiting() && millis() - t0 < timeoutMs) {
+        delay(1);
+    }
+    // optional: detect timeout
+    if (graphics.isWaiting()) { Serial.println("WARN: GPU wait timeout"); }
+}
+
+void _renderTestObjects(unsigned long * time){
+    *(time) = millis() - *time;
+    Serial.print(". Rendering "); Serial.print(*time); Serial.print(" ms");
+    unsigned long drawTime = millis();
+
+    gpu.Set2DObjects(ui.blockObject->shapeList);  // MOVE into GPU
+    gpu.Render();
+    waitUntilDone();                               // bounded wait
+    drawTime = millis() - drawTime;
+    Serial.print(". Drawing "); Serial.print(drawTime); Serial.println(" ms");
     gpu.ClearScreen();
+    *(time) += drawTime;
+}
+
+void graphicsTest(commandRequest request){
+    const int numOfObjects = 100;
     char buf[128];
 
-    graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    graphics.clear();
-    #endif
+    if (!ui.blockObject) {
+        ui.blockObject = new Graphics2D();
+    }
+    if (!ui.blockObject->shapeList) {                 // if your Graphics2D uses a raw pointer
+        ui.blockObject->shapeList = new ShapeList<GraphicsObject2D>();
+    }
 
+    // start clean
+    gpu.ClearScreen();               // clears VRAM + GPU objects safely
+    ui.blockObject->shapeList->clear(); // just in case
+
+    // 1) LINES (GPU object path)
     unsigned long dlStartTime = millis();
     Serial.print("Testing drawing lines .. ");
-    dlStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.drawLine(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(5,graphics.settings.screenWidth - 10),random(5, graphics.settings.screenHeight - 10),random(0,255));
-    }
-    dlStartTime = millis() - dlStartTime;
-    Serial.print(". "); Serial.print(dlStartTime); Serial.println(" ms");
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
 
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Line2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10)
+            ),
+            random(0,255)
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));
+    }
+    _renderTestObjects(&dlStartTime);
+
+    // 2) TRIANGLES (GPU object path)
     unsigned long dtStartTime = millis();
     Serial.print("Testing drawing triangles .. ");
-    dtStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.drawTriangle(
-            random(5,graphics.settings.screenWidth - 10), 
-            random(5, graphics.settings.screenHeight - 10), 
-            random(5,graphics.settings.screenWidth - 10), 
-            random(5, graphics.settings.screenHeight - 10), 
-            random(5,graphics.settings.screenWidth - 10), 
-            random(5, graphics.settings.screenHeight - 10), 
+
+    ui.blockObject->shapeList->clear();
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Triangle2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10)
+            ),
             random(0,255)
-        );       
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));
     }
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-    dtStartTime = millis() - dtStartTime;
-    Serial.print(". "); Serial.print(dtStartTime); Serial.println(" ms");
+    _renderTestObjects(&dtStartTime);
 
-    graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    graphics.clear();
-    #endif
-
+    // 3) RECTANGLES (GPU object path)  **you were missing Set2DObjects here**
     unsigned long drStartTime = millis();
     Serial.print("Testing drawing rectangles .. ");
-    drStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.drawRectangle(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(1,140),random(0,70),random(0,255));
+
+    ui.blockObject->shapeList->clear();
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Rectangle2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, graphics.settings.screenHeight - 10)
+            ),
+            random(0,255)
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));
+    }
+   _renderTestObjects(&drStartTime);
+
+    // 4) CIRCLES (direct VRAM path)
+    Serial.print("Testing drawing circles .. ");
+    unsigned long dcStartTime = millis();
+
+    ui.blockObject->shapeList->clear();
+
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Circle2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(1, 140)
+            ),
+            random(0,255)
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));
+    }
+    
+    _renderTestObjects(&dcStartTime);
+
+    // 5) OVALS (direct VRAM path)
+    Serial.print("Testing drawing ovals .. ");
+    unsigned long doStartTime = millis();
+    ui.blockObject->shapeList->clear();
+
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Oval2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(1, 140),
+                random(1, 140)
+            ),
+            random(0,255)
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));
+        
+    }
+    _renderTestObjects(&doStartTime);
+
+    // 6) Fill triangles (direct VRAM)
+    Serial.print("Testing filling triangles .. ");
+    unsigned long ftStartTime = millis();
+    ui.blockObject->shapeList->clear();
+
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Triangle2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                Fill
+            ),
+            random(0,255)
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));
        
     }
-    drStartTime = millis() - drStartTime;
-    Serial.print(". "); Serial.print(drStartTime); Serial.println(" ms");
-     #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
+   _renderTestObjects(&ftStartTime);
 
-    graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
 
-    Serial.print("Testing drawing circles .. ");
-    
-    unsigned long dcStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.drawCircle(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(1,140),random(0,255));        
-    }
-    dcStartTime = millis() - dcStartTime;
-    Serial.print(".  "); Serial.print(dcStartTime); Serial.println(" ms");
-   
-    graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-
-    Serial.print("Testing drawing ovals .. ");
-    
-    unsigned long doStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.drawOval(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(1,140),random(1,140), random(0,255));       
-    }
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-    doStartTime = millis() - doStartTime;
-    Serial.print(".  "); Serial.print(doStartTime); Serial.println(" ms");
-
-    graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-
-    unsigned long ftStartTime;
-    Serial.print("Testing filling triangles .. ");
-    ftStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.fillTriangle(
-            random(5,graphics.settings.screenWidth - 10), 
-            random(5, graphics.settings.screenHeight - 10), 
-            random(5,graphics.settings.screenWidth - 10), 
-            random(5, graphics.settings.screenHeight - 10), 
-            random(5,graphics.settings.screenWidth - 10), 
-            random(5, graphics.settings.screenHeight - 10), 
-            random(0,255)
-        );       
-    }
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-    ftStartTime = millis() - ftStartTime;
-    Serial.print(". "); Serial.print(ftStartTime); Serial.println(" ms");
-
-    graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-
-    unsigned long frStartTime = millis();
+    // 7) Fill rectangles (direct VRAM)
     Serial.print("Testing filling rectangles .. ");
-    frStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.fillRectangle(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10),  random(1,140),random(5,70),random(0,255));        
+    unsigned long frStartTime = millis();
+    ui.blockObject->shapeList->clear();
+
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Rectangle2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                Fill
+            ),
+            random(0,255)
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));
+       
     }
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-    frStartTime = millis() - frStartTime;
-    Serial.print(". "); Serial.print(frStartTime); Serial.println(" ms");
+    
+    _renderTestObjects(&frStartTime);
 
-
-    graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-
-    unsigned long fcStartTime = millis();
+    // 8) Fill circles (direct VRAM)
     Serial.print("Testing filling circles .. ");
-    fcStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.fillCircle(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(5,70),random(0,255));
-    }
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-    fcStartTime = millis() - fcStartTime;
-    Serial.print(". "); Serial.print(fcStartTime); Serial.println(" ms");
-
+    unsigned long fcStartTime = millis();
     graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-    unsigned long foStartTime = millis();
+
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Circle2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, 70),
+                Fill
+            ),
+            random(0,255)
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));
+        
+    }
+    _renderTestObjects(&fcStartTime);
+
+    // 9) Fill ovals (direct VRAM)
     Serial.print("Testing filling ovals .. ");
-    foStartTime = millis();
-    for(int idx = 0; idx < numOfObjects; idx++){
-        graphics.fillOval(random(5,graphics.settings.screenWidth - 10), random(5, graphics.settings.screenHeight - 10), random(5,70), random(5,70), random(0,255));
-    }
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-    foStartTime = millis() - foStartTime;
-    Serial.print(". "); Serial.print(foStartTime); Serial.println(" ms");
+    unsigned long foStartTime = millis();
+    graphics.clear();
 
-    graphics.clear();
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-    graphics.clear();
+    for (int idx = 0; idx < numOfObjects; ++idx) {
+        GraphicsObject2D obj(
+            new Oval2D(
+                random(5, graphics.settings.screenWidth  - 10),
+                random(5, graphics.settings.screenHeight - 10),
+                random(5, 70),
+                random(5, 70),
+                Fill
+            ),
+            random(0,255)
+        );
+        ui.blockObject->shapeList->push_back(std::move(obj));       
+    }
+    _renderTestObjects(&foStartTime);
+   
+    // summary
+    gpu.ClearScreen();
+    
+    gpu.SetRenderMode(rmText);
     gpu.PrintRam(Serial);
 
     console.SetEchoMode(false);
     console.SetPosition(0,0);
-    sprintf(buf,"Drawing %i lines:      % 5lu ms", numOfObjects, dlStartTime);
-    console.println(buf); 
-    sprintf(buf,"Drawing %i triangles:  % 5lu ms", numOfObjects, dtStartTime);
-    console.println(buf); 
-    sprintf(buf,"Drawing %i rectangles: % 5lu ms", numOfObjects, drStartTime);
-    console.println(buf); 
-    sprintf(buf,"Drawing %i circles:    % 5lu ms", numOfObjects, dcStartTime);
-    console.println(buf); 
-    sprintf(buf,"Drawing %i ovals:      % 5lu ms", numOfObjects, doStartTime);
-    console.println(buf); 
-    sprintf(buf,"Filling %i triangles:  % 5lu ms", numOfObjects, ftStartTime);
-    console.println(buf); 
-    sprintf(buf,"Filling %i rectangles: % 5lu ms", numOfObjects, frStartTime);
-    console.println(buf); 
-    sprintf(buf,"Filling %i circles:    % 5lu ms", numOfObjects, fcStartTime);
-    console.println(buf); 
-    sprintf(buf,"Filling %i ovals:      % 5lu ms", numOfObjects, foStartTime);
-    console.println(buf);
-   
+    sprintf(buf,"Drawing %i lines:      % 5lu ms", numOfObjects, dlStartTime); console.println(buf);
+    sprintf(buf,"Drawing %i triangles:  % 5lu ms", numOfObjects, dtStartTime); console.println(buf);
+    sprintf(buf,"Drawing %i rectangles: % 5lu ms", numOfObjects, drStartTime); console.println(buf);
+    sprintf(buf,"Drawing %i circles:    % 5lu ms", numOfObjects, dcStartTime); console.println(buf);
+    sprintf(buf,"Drawing %i ovals:      % 5lu ms", numOfObjects, doStartTime); console.println(buf);
+    sprintf(buf,"Filling %i triangles:  % 5lu ms", numOfObjects, ftStartTime); console.println(buf);
+    sprintf(buf,"Filling %i rectangles: % 5lu ms", numOfObjects, frStartTime); console.println(buf);
+    sprintf(buf,"Filling %i circles:    % 5lu ms", numOfObjects, fcStartTime); console.println(buf);
+    sprintf(buf,"Filling %i ovals:      % 5lu ms", numOfObjects, foStartTime); console.println(buf);
     unsigned long totalTime = dlStartTime + dtStartTime + drStartTime + dcStartTime + doStartTime + ftStartTime + frStartTime + fcStartTime + foStartTime;
-    sprintf(buf, "--------------------------------");
-    console.println(buf);
-    sprintf(buf,"Total rendering time:   %05lu ms", totalTime);
-    console.println(buf);
-    if(totalTime >  4000){
-        sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are farming a potato!");
-    }
-    else if( totalTime > 2000)
-    {
-        sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are working with a video card!");
-    }
-    else{
-        sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are blazing fast!");
-    }
-    
+    sprintf(buf, "--------------------------------"); console.println(buf);
+    sprintf(buf,"Total rendering time:   %05lu ms", totalTime); console.println(buf);
+
+    if (totalTime > 4000)      sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are farming a potato!");
+    else if (totalTime > 2000) sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are working with a video card!");
+    else                      sprintf(buf,"\n--------------------------------\n Congradulations\n\n    You are blazing fast!");
+
     console.println(buf);
     console.SetEchoMode(true);
-    #ifdef DOUBLE_BUFFER
-    graphics.setReady();
-    #endif
-
+    gpu.Render();
 }
+
 
 void runConsole(commandRequest request){
     console.run();
@@ -666,11 +696,11 @@ void UI::PrintMenu(bool force) {
     console.print("Screen resoltion: "); console.print(graphics.settings.screenWidth);
         console.print("x");console.println(graphics.settings.screenHeight);
     
-    #ifdef DOUBLE_BUFFER
+    //#ifdef DOUBLE_BUFFER
     gpu.Render();
-    #endif
+    //#endif
     gpu.PrintRam(Serial);  
-    gpu.PrintRam(console);
+    //gpu.PrintRam(console);
 
    needPrintMenu = false;
 }

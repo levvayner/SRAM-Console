@@ -21,7 +21,7 @@ uint8_t steps = 0;
 
 void setup() {
     Serial.begin(115200);
-    graphics.begin(0,0,Color::GRAY);
+    gpu.begin();    
     pinMode(PIN_LED, OUTPUT);
     
     keyboard.begin(Serial,50);
