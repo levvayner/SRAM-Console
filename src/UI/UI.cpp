@@ -98,7 +98,6 @@ void serverDownload(commandRequest request){
 }
 
 void drawLines(commandRequest request){
-    byte color = 0;
     unsigned long startTime = millis();
     graphics.clear();
     #ifdef DOUBLE_BUFFER
@@ -118,9 +117,9 @@ void drawLines(commandRequest request){
 }
 void drawDiagonalLines(commandRequest request){
     //row of colors in array, for each line, start farther down the list by one. wrap back to beggining of the list when done
-    uint8_t bufSize = 256;
+    uint8_t bufSize = 255;
     uint8_t colors[bufSize];
-    for(int idx = 0; idx < 256; idx++){
+    for(int idx = 0; idx < sizeof(colors); idx++){
         colors[idx] = idx;
     }
     
@@ -174,6 +173,7 @@ void showScreenSaver(commandRequest request){
     gpu.SetRenderMode(RenderMode::rmBuffered);
     gpu.GetTextBuffer()->Clear();
     console.HideCursor();
+    keyboard.onKeyDown = nullptr;
     //char c = '\0';
     saver.start();
     //keyboard.SetMode(false);
@@ -184,7 +184,8 @@ void showScreenSaver(commandRequest request){
         // #endif
         char key = keyboard.getKey();
             
-        if(key == 'q' || key == 'Q'){
+        //if(key == 'q' || key == 'Q'){
+        if(key != 0){
             saver.stop();              
             break;
         }
@@ -192,6 +193,7 @@ void showScreenSaver(commandRequest request){
     }
     //keyboard.SetMode(true); 
     ui.PrintMenu(true);     
+    keyboard.onKeyDown = consoleProcessKey;
     
 }
 void setGraphicsRenderMode(commandRequest request){
@@ -242,18 +244,20 @@ void drawBlocks(commandRequest request){
                 FillStyle::Fill
             );
             
+            memset(label,0,4);
+            sprintf(label, "%i", color);
+
             // create a local GraphicsObject2D (will take ownership of rect pointer)
-            GraphicsObject2D localObj(rect, color);
+            GraphicsObject2D localObj(rect, color, label);
             ui.blockObject->shapeList->push_back(std::move(localObj));
             // gpu.saveRamStates();
             // gpu.PrintRAMstates();      
             
             //gpu.Add2DObject(localObj);
             
-            memset(label,0,4);
-            sprintf(label, "%i", color);
-            console.SetPosition(x + graphics.settings.charWidth,y + graphics.settings.charHeight);
-            console.write(label,strlen(label), color ^ 0xFF, color,true);
+           
+            // console.SetPosition(x + graphics.settings.charWidth,y + graphics.settings.charHeight);
+            // console.write(label,strlen(label), color ^ 0xFF, color,true);
             //gpu.GetTextBuffer()->AddString(row,line,label,color ^ 0xFF);           
             color--;
         }               

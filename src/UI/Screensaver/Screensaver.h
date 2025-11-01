@@ -4,9 +4,9 @@
 
 extern GPU gpu;
 //extern VRAM graphics;
-#define MAX_COLLISSIONS 10
-#define MIN_BLOCK_SIZE 30
-#define SIZE_RANGE 20
+#define MAX_COLLISSIONS 40
+#define MIN_BLOCK_SIZE 35
+#define SIZE_RANGE 60
 
 /// @brief Screen saver draws pipes.
 /// Pipes are 4 x 4 pixels, so screen is divided in to 432/4 x 240/4 108 x 60
@@ -40,7 +40,7 @@ private:
     uint32_t _currentPosition = 0;
     uint8_t _currentDirection = 0; // 0 -up, 1 - right, 2 - down, 3 - left
     uint8_t _color;
-    uint8_t tileWidth = 40;
+    uint8_t tileWidth = 35;
     uint8_t tileHeight = 30;
     uint16_t _xTiles, _yTiles;
     bool _useRandomSize = false;

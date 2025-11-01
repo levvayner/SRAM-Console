@@ -20,6 +20,8 @@ Console has two primary responsibilities
    A19 high, or upper half the RAM, will be reserved for off the screen stuff, leaving 512kB for each.
 
 */
+void consoleProcessKey(uint8_t data);
+void consoleDrawCursor();
 
 enum DrawShape{
     shapeLine = 0,
@@ -190,6 +192,7 @@ class Console : public Print{
     byte consoleBackgroundColor = 0;
     uint16_t _cursorX = 0;
     uint16_t _cursorY = 0;
+    GraphicsObject2D _cursor = GraphicsObject2D(new Line2D(0,0,0,0),(uint8_t)0);
     uint32_t charsPerLine = 72;//  floor(graphics.settings.screenWidth / graphics.settings.charWidth);
 
     bool _cursorState = false;

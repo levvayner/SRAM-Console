@@ -100,6 +100,7 @@ size_t Console::write(const uint8_t *buffer, size_t size)
 
 void Console::run(bool blocking )
 {
+    gpu.Add2DObject(_cursor);
     _scrollOffset = 0;
     _consoleRunning = blocking;
     if(blocking){
@@ -229,6 +230,7 @@ void Console::end()
     //     _cursorTimer->detachInterrupt();
     //     _cursorTimer = nullptr;
     // }
+    gpu.ClearObjects();
     mouse.end();
 }
 
@@ -603,18 +605,27 @@ bool Console::MoveCursorUp()
     if(_commandMode){
         //TODO: replace contents with previous command in cache
         if(--_commandViewIdx > _history.length()) _commandViewIdx = _history.index();
-        Serial.print("Replace with previous at idx "); Serial.println(_commandViewIdx);
+        //Serial.print("Replace with previous at idx "); Serial.println(_commandViewIdx);
         memset(_cmdBuf, 0, sizeof(_cmdBuf));
-        const char* buf;
-        buf = _history.read(_commandViewIdx);
-        _cmdBufIdx =  strlen(buf);
-        memcpy(_cmdBuf,buf, _cmdBufIdx);
-        memcpy(_currentCommand, buf, _cmdBufIdx);
+        memset(_currentCommand, 0, sizeof(_currentCommand));
+        auto availableWidth = gpu.GetTextBuffer()->width - _promptLength;
+        char *buf = new char[availableWidth];
+        memset(buf,' ', availableWidth);
+        for(int idx=_promptLength;idx < gpu.GetTextBuffer()->width; idx++)
+            gpu.GetTextBuffer()->ClearChar(idx,_cursorY / graphics.settings.charHeight);
+
+        //gpu.GetTextBuffer()->Clea AddString(_promptLength, _cursorY / graphics.settings.charHeight,buf,textColor, consoleBackgroundColor);
+        const char * buf2 = _history.read(_commandViewIdx);
+        _cmdBufIdx =  strlen(buf2);
+        memcpy(_cmdBuf,buf2, _cmdBufIdx);
+        memcpy(_currentCommand, buf2, _cmdBufIdx);
         
         
         _cursorX = _echoPrompt ? _promptLength * graphics.settings.charWidth : 0;
         graphics.clear(_cursorX, _cursorY, graphics.settings.screenWidth - _cursorX, graphics.settings.charHeight);
-        write(buf);
+        write(buf2);
+        _currentCommandIdx = strlen(buf2);
+        delete[] buf;
         return true;
     }
     if(_cursorY <= 0) 

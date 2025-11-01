@@ -24,10 +24,10 @@ void Editor::run()
     }
     Serial.println("Enter text to render. Ctrl+R to quit");
 
-    gpu.Add2DObject(&statusBar);
-    gpu.Add2DObject(&filenameView);
-    gpu.Add2DObject(&lineNo);
-    gpu.Add2DObject(&statusBar);
+    gpu.Add2DObject(statusBar);
+    gpu.Add2DObject(filenameView);
+    gpu.Add2DObject(lineNo);
+    gpu.Add2DObject(statusBar);
 
     //DRAW BOTTOM SECTION
     DrawStatusBar();
