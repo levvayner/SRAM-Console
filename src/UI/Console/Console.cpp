@@ -19,6 +19,7 @@ void consoleDrawCursor(){
     //Serial.println("Console draw cursor");
     console.ToggleCursor();
     console.DrawCursor();
+    //gpu.Render();
 }
 
 
@@ -67,7 +68,6 @@ size_t Console::write(uint8_t data, byte color, byte backgroundColor, bool clear
         
     }
     gpu.GetTextBuffer()->Add(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, data, color, backgroundColor, clearBackround);
-    //graphics.drawText(_cursorX,_cursorY, (char)data, color, backgroundColor, clearBackround, useFrameBuffer);
     
     if(_consoleRunning && !useFrameBuffer) {
         //Serial.print("Stored command to 0x"); Serial.println(pos,HEX);
@@ -95,13 +95,8 @@ size_t Console::write(const uint8_t *buffer, size_t size)
     for(size_t idx = 0; idx < size; idx++)
         write(buffer[idx], textColor, consoleBackgroundColor, true, false);
 
-    #ifdef DOUBLE_BUFFER
-    //graphics.setReady();
-    #endif
     return size;
 }
-
-
 
 void Console::run(bool blocking )
 {
@@ -118,6 +113,8 @@ void Console::run(bool blocking )
     gpu.SetRenderMode(RenderMode::rmText);
     gpu.ClearScreen();
     SetPosition(0,0);
+    _initCurrentCommand(); 
+
     //    _cursorTimer = Timer.getAvailable().attachInterrupt(consoleDrawCursor);
     println("Started console. Type `exit` or Ctrl + R to quit");
     
@@ -147,29 +144,37 @@ void Console::run(bool blocking )
 void Console::loop()
 {
     if(!_consoleRunning) return;
+    //process flags set in interrupt
+    // if(_newLine){
+    //     AdvanceCursor(true);
+    //     _newLine = false;
+    // }
     if(_needEcho){
         _printEcho();
         _needEcho = false;
     }
+    //process commmand if ready
     if(_commandReady){
         _echoPrompt = false;
         _cursorState = false;
         _commandMode = false;
         EraseCursor();
-
-        //Serial.print("Receieved command: "); Serial.println(cmdBuf);
-        //check if registered command
+        
+        //check if registered command        
         auto command = commands.buildCommand(_cmdBuf);
+
         HideCursor();
         AdvanceCursor(true);
         if(command.valid){     
             command.onExecute(command);
-            #ifdef DOUBLE_BUFFER
-            graphics.setReady();
-            command.onExecute(command);
-            #endif
-        }else{            
-            println("Invalid command");           
+            while(graphics.isWaiting());
+            gpu.Render();
+            // #ifdef DOUBLE_BUFFER
+            // graphics.setReady();
+            // command.onExecute(command);
+            // #endif
+        }else if(strlen(command.name) > 0){            
+            print("Invalid command: ["); print(strlen(command.name)); print("] ");  println(command.name);          
         }
         AdvanceCursor(true);
         ShowCursor();
@@ -184,6 +189,7 @@ void Console::loop()
         _needEcho = true;
     }
 
+    //mouse events
     if(_positionUpdated){
         _positionUpdated = false;
         Serial.print("Mouse new position: (");
@@ -201,6 +207,8 @@ void Console::loop()
         graphics.drawRectangle(mouse.location(), Point2D(dragX, dragY),255);
         //mouse.update();
     }
+    while(graphics.isWaiting());
+    gpu.Render();
     //mouse.update();
 }
 
@@ -327,7 +335,7 @@ void Console::_initSD()
         println("* did you change the chipSelect pin to match your shield or module?");
         return;
     } else{
-        println("Initialized Card...");
+        println("... Initialized Card");
     }
    
     // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
@@ -335,7 +343,7 @@ void Console::_initSD()
         println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
         return;
     } else{
-        println("Initialized Volume...");
+        print("... Initialized Volume"); Serial.print(volume.clusterCount()); Serial.print(" clusters");
     }
     //root.close();
     _initialized = true;
@@ -382,141 +390,155 @@ int Console::getCoords(const char *str, int *coords, uint32_t offset)
 // PS2 maps directly each key to a byte code
 inline void Console::processKey(uint8_t keyCode)
 {
-    if(keyCode == 13) return; //ignore carriage return, new line advances to beginning of line
-    _cmdBuf[_cmdBufIdx++] = keyCode;
-
-    
-
-    if(keyCode == 10 && _commandMode)
-    {
-        _commandReady = true;
-        _saveCommand();
-        _initCurrentCommand();
+    // treat both CR and LF as "Enter"
+    if (( keyCode == 10) && _commandMode) {
+        _cmdBuf[_cmdBufIdx] = 0;          // ensure NUL before anyone reads it
+        uint16_t cmdLength = _saveCommand();
+        _initCurrentCommand();      
+        _commandReady = true;         
+        return;
     }
-    else{
-        if( keyCode == 255) return;
-        _currentCommand[_currentCommandIdx++] = keyCode;
-        Serial.print("Read 0x"); Serial.println(keyCode, HEX);
+
+    if (keyCode == 255) return;
+
+    // append to _cmdBuf safely
+    if (_cmdBufIdx < sizeof(_cmdBuf) - 1) {
+        _cmdBuf[_cmdBufIdx++] = keyCode;
+        _cmdBuf[_cmdBufIdx] = 0;          // keep NUL-terminated
+    }
+
+    // append to _currentCommand safely
+    // if (_currentCommandIdx < sizeof(_currentCommand) - 1) {
+    //     _currentCommand[_currentCommandIdx++] = keyCode;
+    //     _currentCommand[_currentCommandIdx] = 0;
+    // }
+
+    if( keyCode == 255) return;
+    Serial.print("Read 0x"); Serial.println(keyCode, HEX);
+    
+    if(keyCode == 0x1B){ //todo, handle escape key
+    Serial.println("Setting mode to ESC");
+        _currentInputMode = Escape;
+        return;            
+    } 
+    if(_currentInputMode == Escape){
+        //function keys
+        if(keyCode == 0x4F ){
+            _currentInputMode = Function;
+            return;
+        }
+        if(keyCode == 0x32 ){ //insert, should be followed by 7E
+            //do whatever insert does
+            Serial.println("Pressed insert");                    
+            _currentInputMode = Command;
         
-        if(keyCode == 0x1B){ //todo, handle escape key
-        Serial.println("Setting mode to ESC");
-            _currentInputMode = Escape;
-            return;            
-        } 
-        if(_currentInputMode == Escape){
-            //function keys
-            if(keyCode == 0x4F ){
-                _currentInputMode = Function;
-                return;
-            }
-            if(keyCode == 0x32 ){ //insert, should be followed by 7E
-                //do whatever insert does
-                Serial.println("Pressed insert");                    
-                _currentInputMode = Command;
+        }
+        if(keyCode == 0x33 ){ //delete, should be followed by 7E           
+            Serial.println("Pressed delete");
+            _currentInputMode = Command;
+        }
+        if(keyCode == 0x7E ){ 
+            _currentInputMode = Text;
+        }
+
+        if(keyCode == 0x5B ){
+                Serial.println("Setting mode to Extended Command mode");
+            _currentInputMode = CommandExtended;
             
-            }
-            if(keyCode == 0x33 ){ //delete, should be followed by 7E           
-                Serial.println("Pressed delete");
-                _currentInputMode = Command;
-            }
-            if(keyCode == 0x7E ){ 
-                _currentInputMode = Text;
-            }
-
-            if(keyCode == 0x5B ){
-                 Serial.println("Setting mode to Extended Command mode");
-                _currentInputMode = CommandExtended;
-                
-            }
-            return;
         }
-
-        if(_currentInputMode == Function){
-            Serial.print("Processing function 0x"); Serial.println(keyCode, HEX);
-            //return;
-            switch (keyCode)
-            {
-                case 0x50: //F1
-                case 0x51: //F2
-                {
-                    textColor--; 
-                    return;                         
-                }
-                    
-                case 0x53: //F4
-                {
-                    textColor++; 
-                    return; 
-                }                       
-                // ...
-            }
-        }        
-        if(_currentInputMode == CommandExtended){   
-            Serial.print("Processing Extended Command mode key: "); Serial.println(keyCode);
-            switch (keyCode)
-            {
-                case 0x33: //delete, should have been preceeded by 0x33
-                    Serial.println("Pressed delete");
-                    return;
-                case 0x41: //up arrow
-                    Serial.println("Pressed up arrow");
-                    EraseCursor();
-                    MoveCursorUp();
-                    return;
-                case 0x42: //down arrow
-                    Serial.println("Pressed down arrow");
-                    EraseCursor();
-                    MoveCursorDown();
-                    return;         
-                case 0x43: //right arrow                    
-                    Serial.println("Pressed right arrow");
-                    EraseCursor();
-                    MoveCursorRight();
-                    return;
-                case 0x44: //left arrow
-                    Serial.println("Pressed left arrow");
-                    EraseCursor();
-                    MoveCursorLeft();
-                    return;
-                case 0x46: //end
-                    break;
-                case 0x48: //home
-                    break;
-                case 0x7E:
-                    _currentInputMode = Text;
-                    break;
-                default:
-                    break;
-            }
-            return;
-        }
-
-        if(keyCode == 0x8){     
-            if((_echoPrompt && (echoY != _cursorY || _cursorX > (_promptLength * graphics.settings.charWidth)) ) || (!_echoPrompt) ){        
-                        
-                EraseCursor();
-                //_printChar(0, _cursorX, _cursorY); // get rid of cursor
-                ReverseCursor();
-                graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, graphics.settings.backgroundColor);                
-            }
-            return;
-        }
-        
-        if(keyCode == 0x12){ //ctrl + r
-            end();
-            Serial.println("Closing console");
-            return;
-        } 
-        if(_currentInputMode == Text){
-            write(keyCode);
-            Serial.print("Received key"); Serial.println(keyCode);
-        }       
-    
+        return;
     }
+
+    if(_currentInputMode == Function){
+        Serial.print("Processing function 0x"); Serial.println(keyCode, HEX);
+        //return;
+        switch (keyCode)
+        {
+            case 0x50: //F1
+            case 0x51: //F2
+            {
+                textColor--; 
+                return;                         
+            }
+                
+            case 0x53: //F4
+            {
+                textColor++; 
+                return; 
+            }                       
+            // ...
+        }
+    }        
+    if(_currentInputMode == CommandExtended){   
+        Serial.print("Processing Extended Command mode key: "); Serial.println(keyCode);
+        switch (keyCode)
+        {
+            case 0x33: //delete, should have been preceeded by 0x33
+                Serial.println("Pressed delete");
+                return;
+            case 0x41: //up arrow
+                Serial.println("Pressed up arrow");
+                EraseCursor();
+                MoveCursorUp();
+                return;
+            case 0x42: //down arrow
+                Serial.println("Pressed down arrow");
+                EraseCursor();
+                MoveCursorDown();
+                return;         
+            case 0x43: //right arrow                    
+                Serial.println("Pressed right arrow");
+                EraseCursor();
+                MoveCursorRight();
+                return;
+            case 0x44: //left arrow
+                Serial.println("Pressed left arrow");
+                EraseCursor();
+                MoveCursorLeft();
+                return;
+            case 0x46: //end
+                break;
+            case 0x48: //home
+                break;
+            case 0x7E:
+                _currentInputMode = Text;
+                break;
+            default:
+                break;
+        }
+        return;
+    }
+
+    if(keyCode == 0x8){     
+        if((_echoPrompt && (echoY != _cursorY || _cursorX > (_promptLength * graphics.settings.charWidth)) ) || (!_echoPrompt) ){        
+                    
+            EraseCursor();
+            //_printChar(0, _cursorX, _cursorY); // get rid of cursor
+            ReverseCursor();
+            _currentCommand[_currentCommandIdx--] = 0x0;
+            gpu.GetTextBuffer()->ClearChar(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight);     
+            //graphics.fillRectangle(_cursorX,_cursorY, graphics.settings.charWidth, graphics.settings.charHeight, graphics.settings.backgroundColor);                
+        }
+        return;
+    }
+    
+    if(keyCode == 0x12){ //ctrl + r
+        end();
+        Serial.println("Closing console");
+        return;
+    } 
+    if(_currentInputMode == Text){
+        _currentCommand[_currentCommandIdx++] = keyCode;
+        write(keyCode);
+        //Serial.print("Received key "); Serial.println(keyCode);
+    }       
     #ifdef DOUBLE_BUFFER
+    
     //graphics.setReady();
     #endif
+
 }
+
 
 bool Console::AdvanceCursor(bool nextLine)
 {    
@@ -547,15 +569,25 @@ bool Console::AdvanceCursor(bool nextLine)
     if(_cursorY + 2* graphics.settings.charHeight  >= graphics.settings.screenHeight  && !_commandMode){
         _scrollOffset++;
         Serial.println ("**\tScrolling down");
-        _drawTextFromRam();
+        //TODO: add flag if reading from memory of not
+        gpu.GetTextBuffer()->ScrollDown();
+        gpu.Invalidate();
+
+        // auto lineLength = graphics.settings.screenWidth / graphics.settings.charWidth;
+        // auto lines = graphics.settings.screenHeight / graphics.settings.charHeight;
+        // for(int line =1; line < lines;line++){
+        //     memcpy(
+        //         gpu.GetTextBuffer()->text + ((line - 1) * lineLength),
+        //         gpu.GetTextBuffer()->text + (line * lineLength),
+        //         lineLength
+        //     );
+        // }      
+        // memset(gpu.GetTextBuffer()->text + (lines * lineLength),0,lineLength);  
+        //_drawTextFromRam();
     } else{ //otherwise move down one
         _cursorY += graphics.settings.charHeight;
         //Serial.println("Moving cursor down.");
     }
-    
-    #ifdef DOUBLE_BUFFER
-    //graphics.setReady();
-    #endif
     return true;
     
 }
@@ -566,17 +598,22 @@ bool Console::ReverseCursor()
         return false;
     
     if(GetDataPos() == LastIdx()) _lastIdx--;
+    auto cw = graphics.settings.charWidth;
+    auto ch = graphics.settings.charHeight;
+
+    int charCol = (_cursorX / cw) - 1;
+    int charRow = (_cursorY / ch) - 1;
+    //remove letter from buffer 
+    //gpu.GetTextBuffer()->UpdateChar(charCol,charRow ,' ');
+    //Serial.print("Clear character at ("); Serial.print(charCol);Serial.print(", ");Serial.print(charRow);Serial.println(")");
 
     if(_cursorX == 0){
-        _cursorY -= graphics.settings.charHeight;
-        _cursorX = ((graphics.settings.screenWidth / graphics.settings.charWidth) -1 ) * graphics.settings.charWidth;
-        if(_cursorX % 6 != 0) _cursorX -= _cursorX % 6; // adjust to 6 pixel wide char grid
-    } else //if(!_echoPrompt || _cursorX > _promptLength * graphics.settings.charWidth){
-        _cursorX -= (graphics.settings.charWidth);
-    #ifdef DOUBLE_BUFFER
-    //graphics.setReady();
-    #endif
-    //}
+        _cursorY -= ch;
+        _cursorX = ((charCol) -1 ) * cw;
+        if(_cursorX % cw != 0) _cursorX -= _cursorX % cw; // adjust to 6 pixel wide char grid
+    } else //if(!_echoPrompt || _cursorX > _promptLength * cw){
+        _cursorX -= (cw);
+   
     return true;
 }
 
@@ -617,7 +654,7 @@ bool Console::MoveCursorUp()
     _cursorState = true;
     DrawCursor();
     #ifdef DOUBLE_BUFFER
-    //graphics.setReady();
+    //gpu.Render();
     #endif
     return true;
 }
@@ -655,7 +692,7 @@ bool Console::MoveCursorDown()
     _cursorState = true;
     DrawCursor();
     #ifdef DOUBLE_BUFFER
-    //graphics.setReady();
+    //gpu.Render();
     #endif
     return true;
 }
@@ -663,34 +700,30 @@ bool Console::MoveCursorDown()
 bool Console::MoveCursorRight()
 {
     if(_cursorX >= graphics.settings.screenWidth - (graphics.settings.charWidth)) return false;
-    if(_cursorState){
-        _cursorState = false;
-        DrawCursor();
-    }
+    // if(_cursorState){
+    //     _cursorState = false;
+    //     DrawCursor();
+    // }
 
     _cursorX += graphics.settings.charWidth;
     _cursorState = true;
-    DrawCursor();
-    #ifdef DOUBLE_BUFFER
-    //graphics.setReady();
-    #endif
+    DrawCursor();  
     return true;
 }
 
 bool Console::MoveCursorLeft()
 {
     if(_cursorX < (graphics.settings.charWidth)) return false;
-    if(_cursorState){
-        _cursorState = false;
-        DrawCursor();
-    }
+    //get rid of current if visible ** done in erase cursor
+    // if(_cursorState){
+    //     _cursorState = false;
+    //     DrawCursor();
+    // }
 
+    //move left and draw cursor
     _cursorX -= (graphics.settings.charWidth);
     _cursorState = true;
-    DrawCursor();
-    #ifdef DOUBLE_BUFFER
-    //graphics.setReady();
-    #endif
+    DrawCursor();   
     return true;
 }
 
@@ -698,25 +731,29 @@ bool Console::MoveCursorLeft()
 void Console::DrawCursor()
 {
     if(!_cursorVisible) return;
+    //Serial.print("Drawing cursor "); Serial.print(_cursorState ? "ON" : "OFF"); Serial.print(" at row "); Serial.print(_cursorY / graphics.settings.charHeight); Serial.print(" column "); Serial.println(_cursorX / graphics.settings.charWidth);
     //if not visible, hide, otherwise if visible show
-    memset(_scratch.bytes, _cursorState ? Color::WHITE : graphics.settings.backgroundColor, graphics.settings.charWidth);
+    //memset(_scratch.bytes, _cursorState ? Color::WHITE : graphics.settings.backgroundColor, graphics.settings.charWidth);
     gpu.GetTextBuffer()->UpdateCharUnderline(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, _cursorState);
     //graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
     //graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
-    #ifdef DOUBLE_BUFFER
-    gpu.Render();
-    #endif
+    // #ifdef DOUBLE_BUFFER
+    // if(!graphics.isWaiting())
+    //     gpu.Render();
+    // #endif
 }
 
 void Console::EraseCursor()
 {
     if(!_cursorVisible) return;
-    memset(_scratch.bytes, 0, graphics.settings.charWidth);
-    gpu.GetTextBuffer()->UpdateCharUnderline(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, _cursorState);
+    //Serial.print("Erasing cursor at row "); Serial.print(_cursorY / graphics.settings.charHeight); Serial.print(" column "); Serial.println(_cursorX / graphics.settings.charWidth);
+    //memset(_scratch.bytes, 0, graphics.settings.charWidth);
+    gpu.GetTextBuffer()->UpdateCharUnderline(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, false);
     // graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
-    #ifdef DOUBLE_BUFFER
-    gpu.Render();
-    #endif
+    // #ifdef DOUBLE_BUFFER
+    // if(!graphics.isWaiting())
+    //     gpu.Render();
+    // #endif
 }
 
 void Console::printDiskInfo()
@@ -757,20 +794,22 @@ void Console::printDiskInfo()
     uint32_t volumesize;
     memset(_scratch.bytes,0,sizeof(_scratch));
     sprintf(_scratch.text, "Volume type is:    FAT%d", volume.fatType());
-    graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, consoleBackgroundColor);
+    print((const char*) _scratch.text);
+    //graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, consoleBackgroundColor);
     write(10);
     
     volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
     volumesize *= volume.clusterCount();       // we'll have a lot of clusters
     volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1KB)
     if(volumesize < 2048){
-        sprintf(_scratch.text, "Volume size        %lu KB", volumesize);
+        sprintf(_scratch.text, "Volume size        %.2f KB", (float)volumesize);
     }else if(volumesize < 1024*2048){
-        sprintf(_scratch.text, "Volume size        %lu MB", volumesize/1024);
+        sprintf(_scratch.text, "Volume size        %.2f MB", (float)volumesize/(float)1024);
     }else{
-        sprintf(_scratch.text, "Volume size        %lu GB", volumesize/(1024*1024));
+        sprintf(_scratch.text, "Volume size        %.2f GB", (float)volumesize/(float)(1024*1024));
     }
-    graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, consoleBackgroundColor);
+    print((const char*) _scratch.text);
+    //graphics.drawText(_cursorX, _cursorY,(const char*) _scratch.text, textColor, consoleBackgroundColor);
     write(10);
     
     console.SetEchoMode(true);
@@ -782,26 +821,50 @@ void Console::printDiskInfo()
 int Console::_saveCommand()
 {
     //auto commandString = String(command);
+    //remove trailing space
+    int i = strlen(_currentCommand) - 1;
+    while (i >= 0 && isspace(_currentCommand[i])) {
+        _currentCommand[i] = '\0'; // Replace whitespace with null terminator
+        i--;
+    }
+
     int cmdLength = strlen(_currentCommand);
-    Serial.print("Received command line: "); Serial.println(_currentCommand);
+    Serial.print("Received command line: [");  Serial.print(cmdLength);  Serial.print("] "); Serial.println(_currentCommand);
     char cmd[64];
-    char args[240];
-    
-    
-    _commandViewIdx = _history.index();
-    _commandViewIdx = _history.addEntry(_currentCommand);
-    
+    char args[192];
     memset(cmd, 0 , sizeof(cmd));
     memset(args, 0 , sizeof(args));
-    
-    for (int idx = 0; idx < cmdLength;idx++){
+
+    //sanitize input
+    for(int idx=0, outidx = 0;idx < cmdLength; idx++){
         if(_currentCommand[idx] == ' ' || _currentCommand[idx] == '\0'){
             cmdLength = idx;
             break;
-        }        
+        }
+        if(_currentCommand[idx] > 31 && _currentCommand[idx] < 127){
+            cmd[outidx++] = _currentCommand[idx];
+        }
     }
-    memcpy(cmd,_currentCommand, cmdLength);
-    memcpy(args,_currentCommand + cmdLength + 1, strlen(_currentCommand) - cmdLength);
+    //args
+    for(int idx = cmdLength + 1 , outidx = 0;idx < strlen(_currentCommand); idx++){
+        if(_currentCommand[idx] == ' ' || _currentCommand[idx] == '\0'){            
+            break;
+        }
+        if(_currentCommand[idx] > 31 && _currentCommand[idx] < 127){
+            args[outidx++] = _currentCommand[idx];
+        }
+    }
+    
+    //write back santized
+    memset(_cmdBuf,0,sizeof(_cmdBuf));
+    sprintf(_cmdBuf,"%s %s", cmd, args);
+    Serial.print("Saving command: [");  Serial.print(cmdLength);  Serial.print("] "); Serial.println(_cmdBuf);
+    _commandViewIdx = _history.index();
+    _commandViewIdx = _history.addEntry(_cmdBuf);
+    
+    
+    //memcpy(cmd,_currentCommand, cmdLength);
+    //memcpy(args,_currentCommand + cmdLength + 1, strlen(_currentCommand) - cmdLength);
     // Serial.print("Processing command "); Serial.print(cmd); 
     // if(strlen(args) > 0){
     //     Serial.print(" with args "); Serial.print(args);
@@ -809,7 +872,7 @@ int Console::_saveCommand()
     // Serial.println();
 
    
-    return 0;
+    return cmdLength;
 }
 
 size_t Console::print(const char* str)

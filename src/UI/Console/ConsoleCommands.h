@@ -111,6 +111,25 @@ void df(commandRequest request){
     console.printDiskInfo();
 }
 
+void color(commandRequest request){
+    if(strlen(request.args) <= 0)
+    {
+        console.println("Proper Use: color [NUMBER] - where NUMBER is a number between 0 and 255");
+        return;
+    }
+    auto textColor = atoi(request.args);
+    Serial.print("Setting console text color to "); Serial.println(textColor);
+    console.SetColor(textColor);
+}
+void bg(commandRequest request){
+    if(strlen(request.args) <= 0)
+    {
+        console.println("Proper Use: bg [NUMBER] - where NUMBER is a number between 0 and 255");        
+        return;
+    }
+    auto bgColor = atoi(request.args);
+    console.SetBackgroundColor(bgColor);    
+}
 void cat(commandRequest request){
     //check if we are in sd volume
     console.SetEchoMode(false);
@@ -144,7 +163,23 @@ void cat(commandRequest request){
 }
 
 void rm(commandRequest request){
+    if(!SD.exists(request.args)){
+        console.println("File not found!");
+        return;
+    }
+    SD.remove(request.args);
+    console.print("Deleted "); console.println(request.args);
 
+}
+
+void mkdir(commandRequest request){
+    if(SD.exists(request.args)){
+        return;
+    }
+    
+    SD.mkdir(request.args);
+    console.print("Created directory "); console.println(request.args);
+    
 }
 
 void rmdir(commandRequest request){
@@ -165,7 +200,11 @@ void rmdir(commandRequest request){
 
 
     }
+}
 
+void mem(commandRequest request){
+    gpu.PrintRam(console);
+    gpu.PrintRam(Serial);
 }
 
 void paint(commandRequest request){
@@ -198,7 +237,8 @@ void edit(commandRequest request){
     editor.run();
     
     //done editing, save memory back to file
-    //editor.save();
+    // editor.save();
+    // console.run();
 }
 
 void run(commandRequest request){
@@ -321,14 +361,18 @@ void dumpData(commandRequest request){
 
 void registerConsoleCommands(){
     commands.registerCommand(CONTEXT_CONSOLE,"clear", "",clear);
+    commands.registerCommand(CONTEXT_CONSOLE,"mem", "",mem);
     commands.registerCommand(CONTEXT_CONSOLE,"cd", "",cd);
     commands.registerCommand(CONTEXT_CONSOLE,"ls", "lr",ls);
     commands.registerCommand(CONTEXT_CONSOLE,"df", "",df);
     commands.registerCommand(CONTEXT_CONSOLE,"cat", "",cat);
-    commands.registerCommand(CONTEXT_CONSOLE,"rm", "",rm);
-    commands.registerCommand(CONTEXT_CONSOLE,"rmdir", "",rmdir);
+    commands.registerCommand(CONTEXT_CONSOLE,"bg", "",bg);
+    commands.registerCommand(CONTEXT_CONSOLE,"color", "",color);
+    commands.registerCommand(CONTEXT_CONSOLE,"rm", "", rm);
+    commands.registerCommand(CONTEXT_CONSOLE,"mkdir","", mkdir);
+    commands.registerCommand(CONTEXT_CONSOLE,"rmdir", "r",rmdir);
     commands.registerCommand(CONTEXT_CONSOLE,"paint", "",paint);
-    commands.registerCommand(CONTEXT_CONSOLE,"edit", "",edit);
+    commands.registerCommand(CONTEXT_CONSOLE,"edit", "c",edit);
     commands.registerCommand(CONTEXT_CONSOLE,"run", "",run);
     commands.registerCommand(CONTEXT_CONSOLE,"rect", "",drawShape);
     commands.registerCommand(CONTEXT_CONSOLE,"tri", "",drawShape);
@@ -359,8 +403,7 @@ void listFiles(const char * path, int indent,  char*  flags)
     }
     File entry;    
     while(true){
-        uint8_t fgColor = console.GetColor();
-        uint8_t color = fgColor;
+        uint8_t fgColor = console.GetColor();      
         entry = rootFile.openNextFile();
         
         if(!entry) break;
@@ -368,13 +411,13 @@ void listFiles(const char * path, int indent,  char*  flags)
         memset(fileSize, 0, sizeof(fileSize));
         if(entry.isDirectory()){
             sprintf(fileSize, "%s", "<dir>");
-            color = Color::YELLOW;
+            fgColor = Color::YELLOW;
         }
         else{
             sprintf(fileSize, "%lu%s",  entry.size(), " bytes");            
             size+= entry.size();
             if(endsWith(entry.name(), ".BIN")){
-                color = Color::BRICK;
+                fgColor = Color::BRICK;
             }
         }
         
@@ -388,12 +431,12 @@ void listFiles(const char * path, int indent,  char*  flags)
         
         //write(_scratch.text);
         //auto pos = console.GetPosition();
-        console.SetColor(color);
+        //console.SetColor(color);
         if(console.GetPosition().x + (strlen(_scratch.text) * graphics.settings.charWidth) > graphics.settings.screenWidth)
             console.write(10); // if text would overflow, go to next line
         Serial.println(_scratch.text);
-        console.write(_scratch.text);
-        console.SetColor(fgColor);
+        console.write((const char*)_scratch.text,strlen(_scratch.text),fgColor,console.GetBackgroundColor());
+        //console.SetColor(fgColor);
         // programmer.WriteBytes(1 << 19 | console.GetDataPos(), _scratch.bytes, strlen(_scratch.text));
         // graphics.drawText(pos.x, pos.y, _scratch.text, console.GetColor(), console.GetBackgroundColor());
         if(longFormat || (entry.isDirectory() && recursive))

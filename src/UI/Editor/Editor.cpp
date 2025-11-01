@@ -9,6 +9,7 @@ void editorProcessKey(uint8_t data){
 
 void Editor::run()
 {
+    gpu.ClearScreen();
     SetCommandMode(false);
     SetWindowHeight(graphics.settings.screenHeight - STATUS_BAR_HEIGHT);
     // if(!IsConsoleRunning())
@@ -32,7 +33,7 @@ void Editor::run()
     // _cursorY = 0;
 
     mouse.begin();
-    this->ShowCursor();
+    //this->ShowCursor();
     //ConsoleKeyPress PS2Key;
     //while(_isEditorRunning){
         //TODO: implement PS2 and Serial key actions
@@ -165,7 +166,7 @@ bool Editor::open(const char *filename)
         if(!f.available()) break;
         int bytesRead = f.readBytes(buf,sizeof(buf));
         if(bytesRead == 0 ) continue;
-        
+        memcpy(gpu.GetTextBuffer()->text + idx,buf,bytesRead);
         //programmer.WriteBytes(1<<19 | idx, (uint8_t*)buf,bytesRead);
         idx += bytesRead;
     }
@@ -181,19 +182,23 @@ bool Editor::open(const char *filename)
         
         int charsToDraw = min((uint32_t)(charsMax - charsDrawn), charsPerLine);
         memset(buf,0, charsToDraw + 1);
-        int bytesRead = graphics.ReadBytes(1<<19 | charsDrawn, (uint8_t*) buf,charsToDraw);
+        memcpy(buf,gpu.GetTextBuffer()->text + charsDrawn, charsToDraw);
+        //int bytesRead = graphics.ReadBytes(1<<19 | charsDrawn, (uint8_t*) buf,charsToDraw);
         if(strchr(buf,10) != NULL){
-            bytesRead = strchr(buf,10) - buf + 1;
-            buf[bytesRead] = 0;
+            charsToDraw = strchr(buf,10) - buf + 1;
+            buf[charsToDraw] = 0;
             //memset(buf + bytesRead, 0, sizeof(buf) - bytesRead);
         }
         //if(bytesRead == 0) break;
-        Serial.print("Drawing "); Serial.print(bytesRead); Serial.print(" chars on line "); Serial.println((_cursorY / graphics.settings.charHeight)+ 1);
-        graphics.drawText(_cursorX, _cursorY, buf,textColor);
+        Serial.print("Drawing "); Serial.print(charsToDraw); Serial.print(" chars on line "); Serial.println((_cursorY / graphics.settings.charHeight)+ 1);
+        gpu.GetTextBuffer()->AddString(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight,buf, textColor, editor.consoleBackgroundColor,false);
+        //graphics.drawText(_cursorX, _cursorY, buf,textColor);
         _cursorY += graphics.settings.charHeight;
-        charsDrawn += bytesRead;
+        charsDrawn += charsToDraw;
     }
     SetLastIdx( idx);
+
+    SetPosition();
     return true;
 }
 
@@ -276,15 +281,21 @@ void Editor::DrawStatusBar()
     char buf[256];
     memset(buf,0,256);
     unsigned long startTime = millis();
-    graphics.drawRectangle(0, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth, 9,Color::DARK_GREEN);
-    graphics.fillRectangle(2, graphics.settings.screenHeight - 9, 8* (graphics.settings.charWidth), 8,Color::FromRGB(2,3,2));
+    // statusBar = GraphicsObject2D(new Rectangle2D(0, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth, 9,Fill), Color::DARK_GREEN);    
+    // filenameView = GraphicsObject2D(new Rectangle2D(300, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth - 305, 9,Fill), Color::YELLOW);
+    gpu.Add2DObject(std::move(statusBar));
+    gpu.Add2DObject(std::move(filenameView));
+    gpu.Add2DObject(std::move(lineNo));
+    //graphics.drawRectangle(0, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth, 9,Color::DARK_GREEN);
+    //graphics.fillRectangle(2, graphics.settings.screenHeight - 9, 8* (graphics.settings.charWidth), 8,Color::FromRGB(2,3,2));
     sprintf(buf,"Cursor");
-    graphics.drawText(2, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::DARK_GREEN, false);
+    graphics.drawText(2, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::DARK_GREEN, true);
     //_printChars(buf,Color::WHITE, 2, graphics.settings.screenHeight - 9, false);     
     
     _drawCursorPosition();
 
-    graphics.fillRectangle(90, graphics.settings.screenHeight - 9, graphics.settings.screenWidth - 80, 9, Color::FromRGB(2,3,0));
+    auto statusBar = GraphicsObject2D(new Rectangle2D(90, graphics.settings.screenHeight - 9, graphics.settings.screenWidth - 80, 9,Fill), Color::FromRGB(2,3,0).ToByte());
+    gpu.Add2DObject(std::move(statusBar));
 
     sprintf(buf,"Line:");
     graphics.drawText(91, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(2,3,0), false);
@@ -425,8 +436,10 @@ void Editor::processKey(uint8_t keyCode)
     }
     
     if(keyCode == 0x12){ //ctrl + r
+        
         stop();
         Serial.println("Closing editor");
+        
         return;
     } 
     if(_currentInputMode == Text){
@@ -478,6 +491,7 @@ void Editor::_drawLineNo()
 {
     char buf[6];
     sprintf(buf,"%i", (_scrollOffset + _cursorY / 9) + 1);
+    lineNo.text = buf;
 
     graphics.fillRectangle(150, graphics.settings.screenHeight - 9, 32, 8, Color::FromRGB(1,1,0));
     graphics.drawText(152, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(1,1,0), false);
@@ -499,7 +513,14 @@ void Editor::_drawColor()
 void Editor::_drawFilename()
 {
     graphics.fillRectangle(300, graphics.settings.screenHeight - 9, (strlen(_fileName) * graphics.settings.charWidth) + 4, 8, Color::FromRGB(1,1,0));
-    graphics.drawText(302, graphics.settings.screenHeight - 9, _fileName, Color::WHITE, Color::FromRGB(1,1,0), false);
+    gpu.GetTextBuffer()->AddString(
+        302/ graphics.settings.charWidth,
+        graphics.settings.screenHeight - 9 / graphics.settings.charHeight,
+        _fileName,
+        Color::WHITE, 
+        Color::FromRGB(1,1,0).ToByte(),
+    true);
+    //graphics.drawText(302, graphics.settings.screenHeight - 9, _fileName, Color::WHITE, Color::FromRGB(1,1,0), false);
     //_printChars(buf,Color::WHITE, 131, graphics.settings.screenHeight - 9, false);  
     // graphics.fillRectangle(226, graphics.settings.screenHeight - 8, 5, 6, textColor);
 }

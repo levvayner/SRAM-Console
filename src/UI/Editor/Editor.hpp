@@ -62,6 +62,11 @@ class Editor : public Console{
     char* _fileName = nullptr;
     bool _isNewFile = false;
     KeyInputMode _currentInputMode;
+
+    //visual objects owned by editor
+    GraphicsObject2D filenameView = GraphicsObject2D(new Rectangle2D(300, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth - 305, 9,Fill), Color::YELLOW);
+    GraphicsObject2D statusBar = GraphicsObject2D(new Rectangle2D(0, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth, 9,Fill), Color::DARK_GREEN);
+    GraphicsObject2D lineNo = GraphicsObject2D(new Rectangle2D(150, graphics.settings.screenHeight - 9, 32, 8,Fill),  Color::FromRGB(1,1,0).ToByte());
 };
 
 #endif

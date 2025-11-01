@@ -44,6 +44,7 @@ void setup() {
     gpu.PrintRam(Serial);
 }
 
+static bool isEditorRunningLast = false, isConsoleRunningLast = false;
 
 void loop() {   
     #if defined(USE_USB_MOUSE) && USE_USB_MOUSE > 0
@@ -56,7 +57,14 @@ void loop() {
     if(console.IsConsoleRunning())
         console.loop();
 
+    
     if(editor.IsEditorRunning())
         editor.loop();
+    if(isEditorRunningLast && !editor.IsEditorRunning()){
+        editor.save();
+        //ui.begin();
+        //console.run(false);
+    }
+    isEditorRunningLast = editor.IsEditorRunning();
     mouse.update(); 
 }

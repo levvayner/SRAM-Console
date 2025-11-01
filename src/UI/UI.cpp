@@ -288,6 +288,7 @@ void drawBlocks(commandRequest request){
 
     console.SetPosition(70, graphics.settings.screenHeight - 9);
     console.write("256 Available Colors", 20,Color::WHITE, true);
+    while(graphics.isWaiting());
     gpu.Render();
     #ifdef DEBUG_GPU
     gpu.saveRamStates();
@@ -518,7 +519,7 @@ void graphicsTest(commandRequest request){
     _renderTestObjects(&foStartTime);
    
     // summary
-    gpu.ClearScreen();
+    console.clear();
     
     gpu.SetRenderMode(rmText);
     gpu.PrintRam(Serial);
@@ -675,7 +676,8 @@ void UI::PrintMenu(bool force) {
         Serial.print(F("x"));Serial.println(graphics.settings.screenHeight);
 
     gpu.SetRenderMode(rmText);
-    gpu.ClearScreen();
+    gpu.ClearObjects();
+    console.clear();
     console.SetPosition();
     console.println("VGA TOOL   -   v 0.2.0");
 	console.println("---------------------------------");

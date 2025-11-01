@@ -105,7 +105,7 @@ class Console : public Print{
     size_t println(void);
 
     virtual inline void clear(){ 
-        graphics.clear();
+        gpu.ClearScreen(consoleBackgroundColor);
         
     }
     /// @brief Clears memory in data buffer (Addresss 0x40000) with length of characters that would fit into screen buffer
@@ -119,10 +119,10 @@ class Console : public Print{
     virtual inline void SetScrollPosition(int offset = 0){ _scrollOffset = offset; }
     virtual inline byte GetColor(){return textColor; }
     virtual inline byte GetBackgroundColor(){return consoleBackgroundColor; }
-    virtual inline void SetColor(byte color){ textColor = color;}
-    virtual inline void SetColor(Color color){ textColor = color.ToByte();}
-    virtual inline void SetBackgroundColor(byte color){  consoleBackgroundColor = color;}
-    virtual inline void SetBackgroundColor(Color color){ consoleBackgroundColor = color.ToByte();}
+    virtual inline void SetColor(byte color){ textColor = color; gpu.GetTextBuffer()->Invalidate(); clear();}
+    virtual inline void SetColor(Color color){ textColor = color.ToByte(); gpu.GetTextBuffer()->Invalidate(); clear();}
+    virtual inline void SetBackgroundColor(byte color){  consoleBackgroundColor = color; gpu.GetTextBuffer()->Invalidate(); clear();}
+    virtual inline void SetBackgroundColor(Color color){ consoleBackgroundColor = color.ToByte(); gpu.GetTextBuffer()->Invalidate(); clear();}
     //virtual void processUSBKey(); //
     //virtual ConsoleKeyType processPS2Key(uint8_t ps2KeyCode); //
     inline bool IsConsoleRunning(){ return _consoleRunning;}
@@ -163,6 +163,7 @@ class Console : public Print{
     virtual void HideCursor(){
         if(!_cursorVisible) return;
         //stop timer
+        Serial.println("** Detaching Console Cursor Interrupt ** ");
         _cursorTimer->detachInterrupt();
         _cursorTimer->stop();
         _cursorTimer = nullptr;
@@ -170,6 +171,7 @@ class Console : public Print{
     }
     virtual void ShowCursor(){ 
         if(_cursorVisible) return;
+        Serial.println("** Attaching Console Cursor Interrupt ** ");
         _cursorTimer = new DueTimer(Timer.getAvailable());
         _cursorTimer->attachInterrupt(consoleDrawCursor);
         _cursorTimer->start(500000);
@@ -224,6 +226,7 @@ class Console : public Print{
     char _cmdBuf[256];
     uint16_t _cmdBufIdx = 0;
     bool _needEcho = true;
+    //bool _newLine = false;
 
     bool _consoleRunning = false; 
     bool _commandMode = false;   
