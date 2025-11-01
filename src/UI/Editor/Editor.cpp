@@ -23,6 +23,12 @@ void Editor::run()
         Serial.print("Setting new file to: "); Serial.println(_fileName);
     }
     Serial.println("Enter text to render. Ctrl+R to quit");
+
+    gpu.Add2DObject(&statusBar);
+    gpu.Add2DObject(&filenameView);
+    gpu.Add2DObject(&lineNo);
+    gpu.Add2DObject(&statusBar);
+
     //DRAW BOTTOM SECTION
     DrawStatusBar();
     keyboard.onKeyDown = editorProcessKey;
@@ -283,9 +289,7 @@ void Editor::DrawStatusBar()
     unsigned long startTime = millis();
     // statusBar = GraphicsObject2D(new Rectangle2D(0, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth, 9,Fill), Color::DARK_GREEN);    
     // filenameView = GraphicsObject2D(new Rectangle2D(300, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth - 305, 9,Fill), Color::YELLOW);
-    gpu.Add2DObject(std::move(statusBar));
-    gpu.Add2DObject(std::move(filenameView));
-    gpu.Add2DObject(std::move(lineNo));
+    
     //graphics.drawRectangle(0, graphics.settings.screenHeight - STATUS_BAR_HEIGHT, graphics.settings.screenWidth, 9,Color::DARK_GREEN);
     //graphics.fillRectangle(2, graphics.settings.screenHeight - 9, 8* (graphics.settings.charWidth), 8,Color::FromRGB(2,3,2));
     sprintf(buf,"Cursor");
@@ -294,9 +298,8 @@ void Editor::DrawStatusBar()
     
     _drawCursorPosition();
 
-    auto statusBar = GraphicsObject2D(new Rectangle2D(90, graphics.settings.screenHeight - 9, graphics.settings.screenWidth - 80, 9,Fill), Color::FromRGB(2,3,0).ToByte());
-    gpu.Add2DObject(std::move(statusBar));
-
+    //auto statusBar = GraphicsObject2D(new Rectangle2D(90, graphics.settings.screenHeight - 9, graphics.settings.screenWidth - 80, 9,Fill), Color::FromRGB(2,3,0).ToByte());
+    
     sprintf(buf,"Line:");
     graphics.drawText(91, graphics.settings.screenHeight - 9, buf, Color::WHITE, Color::FromRGB(2,3,0), false);
     
