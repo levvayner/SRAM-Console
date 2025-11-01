@@ -8,6 +8,7 @@ extern UI ui;
 DueFlashStorage dueFlashStorage;
 void listFiles(const char * path, int indent,  char*  flags);
 int endsWith(const char *str, const char *suffix);
+void _copyFile(File* sourceFile, File* destFile);
 
 void clear(commandRequest request){
     console.EraseCursor();
@@ -135,12 +136,12 @@ void cat(commandRequest request){
     console.SetEchoMode(false);
     String requestPath = request.args;
     requestPath.trim();
-    bool addSeperator = true;
-    if(requestPath.startsWith("/")) addSeperator = false;    
+    bool addPath = true;
+    if(requestPath.startsWith("/")) addPath = false;    
     
     
     char buf[128];
-    sprintf(buf, "%s%s%s", addSeperator ? "" : console.path().c_str(), addSeperator ? "/" : "" , requestPath.c_str());
+    sprintf(buf, "%s%s%s", addPath ? console.path().c_str() : "", addPath ? "/" : "" , requestPath.c_str());
     Serial.print("Executing cat on file "); Serial.println(buf);
     File f = SD.open(buf);
     if(f){
@@ -170,6 +171,70 @@ void rm(commandRequest request){
     SD.remove(request.args);
     console.print("Deleted "); console.println(request.args);
 
+}
+
+void cp(commandRequest request){
+    //TODO: implement r flag for recursive copy
+    if(strlen(request.args) <=0) return;
+    auto spaceIdx = strchr(request.args, ' ') - request.args;
+    if(spaceIdx <= 0){
+        console.println("Invalid use. copy SOURCE DESTINATION");
+        return;
+    } else{
+        Serial.print("Found space at idx "); Serial.println(spaceIdx);
+    }
+    char * source = new char[spaceIdx + 1] {0};
+    char * dest = new char[strlen(request.args) - spaceIdx]{0};
+    strncpy(source, request.args, spaceIdx);
+    strncpy(dest, request.args + spaceIdx + 1, strlen(request.args) - spaceIdx - 1);
+    //Serial.print("Source: "); Serial.print(source); Serial.print(" destination: "); Serial.println(dest);
+    if(!SD.exists(source)){
+        console.println("File ["); console.print(source); console.println("] not found!");
+        return;
+    }
+    if(SD.exists(dest) && strchr( request.flags, 'f') == NULL){
+        console.println("File ["); console.print(dest); console.println("] already exists!");
+        return;
+    }
+    auto sourceFile = SD.open(source, FILE_READ);
+    
+    //Serial.print("Copying "); Serial.print(sourceFile.size()); Serial.println(" bytes");
+    if(sourceFile.isDirectory()){
+        SD.mkdir(dest);
+        while(true){
+            auto entry = sourceFile.openNextFile();
+            if(!entry) break;
+            char destFileName[32] = {0};
+            sprintf(destFileName,"%s/%s", dest, entry.name());
+            Serial.print("Copying file: "); Serial.print(entry.name()); Serial.print(" to "); Serial.print(destFileName);
+            auto destFile = SD.open(destFileName, FILE_WRITE);    
+            _copyFile(&entry,&destFile);            
+        }
+        
+    } else{
+        File destFile = SD.open(dest, FILE_WRITE);
+        _copyFile(&sourceFile, &destFile);
+    }
+       
+    
+
+    delete[] source;
+    delete[] dest;
+}
+
+void _copyFile(File* sourceFile, File* destFile){
+        uint32_t bytesCopied = 0;
+        uint8_t buffer[256]; // You can adjust buffer size
+        size_t bytesRead;
+        while ((bytesRead = sourceFile->read(buffer, sizeof(buffer))) > 0) {
+            destFile->write(buffer, bytesRead);
+            bytesCopied += bytesRead;
+        }   
+        sprintf((char*)buffer, "Copied %u bytes from %s to %s",bytesCopied, sourceFile->name(), destFile->name());
+        sourceFile->close();
+        destFile->close();
+        
+        console.println((char*)buffer);
 }
 
 void mkdir(commandRequest request){
@@ -346,7 +411,6 @@ void commandExit(commandRequest request){
 
 void dumpData(commandRequest request){
     uint16_t pos = console.GetDataPos();
-    char nextChar = ' ';
     if(pos <=  0) return;
     Serial.println("Dumping data contents... ");
     //     return;
@@ -371,6 +435,8 @@ void registerConsoleCommands(){
     commands.registerCommand(CONTEXT_CONSOLE,"rm", "", rm);
     commands.registerCommand(CONTEXT_CONSOLE,"mkdir","", mkdir);
     commands.registerCommand(CONTEXT_CONSOLE,"rmdir", "r",rmdir);
+    commands.registerCommand(CONTEXT_CONSOLE,"cp", "rf",cp);
+
     commands.registerCommand(CONTEXT_CONSOLE,"paint", "",paint);
     commands.registerCommand(CONTEXT_CONSOLE,"edit", "c",edit);
     commands.registerCommand(CONTEXT_CONSOLE,"run", "",run);
@@ -434,7 +500,7 @@ void listFiles(const char * path, int indent,  char*  flags)
         //console.SetColor(color);
         if(console.GetPosition().x + (strlen(_scratch.text) * graphics.settings.charWidth) > graphics.settings.screenWidth)
             console.write(10); // if text would overflow, go to next line
-        Serial.println(_scratch.text);
+        //Serial.println(_scratch.text);
         console.write((const char*)_scratch.text,strlen(_scratch.text),fgColor,console.GetBackgroundColor());
         //console.SetColor(fgColor);
         // programmer.WriteBytes(1 << 19 | console.GetDataPos(), _scratch.bytes, strlen(_scratch.text));

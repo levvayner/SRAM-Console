@@ -392,8 +392,8 @@ inline void Console::processKey(uint8_t keyCode)
 {
     // treat both CR and LF as "Enter"
     if (( keyCode == 10) && _commandMode) {
-        _cmdBuf[_cmdBufIdx] = 0;          // ensure NUL before anyone reads it
-        uint16_t cmdLength = _saveCommand();
+       // _cmdBuf[_cmdBufIdx] = 0;          // ensure NUL before anyone reads it
+        _saveCommand();
         _initCurrentCommand();      
         _commandReady = true;         
         return;
@@ -401,11 +401,11 @@ inline void Console::processKey(uint8_t keyCode)
 
     if (keyCode == 255) return;
 
-    // append to _cmdBuf safely
-    if (_cmdBufIdx < sizeof(_cmdBuf) - 1) {
-        _cmdBuf[_cmdBufIdx++] = keyCode;
-        _cmdBuf[_cmdBufIdx] = 0;          // keep NUL-terminated
-    }
+    // // append to _cmdBuf safely
+    // if (_cmdBufIdx < sizeof(_cmdBuf) - 1) {
+    //     _cmdBuf[_cmdBufIdx++] = keyCode;
+    //     _cmdBuf[_cmdBufIdx] = 0;          // keep NUL-terminated
+    // }
 
     // append to _currentCommand safely
     // if (_currentCommandIdx < sizeof(_currentCommand) - 1) {
@@ -471,6 +471,7 @@ inline void Console::processKey(uint8_t keyCode)
     }        
     if(_currentInputMode == CommandExtended){   
         Serial.print("Processing Extended Command mode key: "); Serial.println(keyCode);
+        _currentInputMode = Text;
         switch (keyCode)
         {
             case 0x33: //delete, should have been preceeded by 0x33
@@ -497,8 +498,12 @@ inline void Console::processKey(uint8_t keyCode)
                 MoveCursorLeft();
                 return;
             case 0x46: //end
+                EraseCursor();
+                MoveCursorEnd();
                 break;
             case 0x48: //home
+                EraseCursor();
+                MoveCursorHome();
                 break;
             case 0x7E:
                 _currentInputMode = Text;
@@ -550,21 +555,8 @@ bool Console::AdvanceCursor(bool nextLine)
         _cursorX += graphics.settings.charWidth;
         return false;
     }
-    //otherwise advance to next available line 
-    if(!nextLine && _consoleRunning){
-        //Serial.println ("**\tAdvancing line");
-        //Serial.print("Advancing to new line, injecting NL into data cache at address 0x"); Serial.println(GetDataPos(), HEX);
-        // programmer.WriteByte( 1 << 19 | (GetDataPos() + 1) ,10,1);      
-        // programmer.ReadByte(0); //turn off 19th bit   
-                 
-    }
-    //Serial.print("Reset cursor x");
+    //otherwise advance to next available line     
     _cursorX = 0;
-    // if(nextLine && _consoleRunning)
-    // {
-    //     if(_echoPrompt) _printEcho();  
-    // }
-    
     //if we need to scroll down
     if(_cursorY + 2* graphics.settings.charHeight  >= graphics.settings.screenHeight  && !_commandMode){
         _scrollOffset++;
@@ -572,18 +564,6 @@ bool Console::AdvanceCursor(bool nextLine)
         //TODO: add flag if reading from memory of not
         gpu.GetTextBuffer()->ScrollDown();
         gpu.Invalidate();
-
-        // auto lineLength = graphics.settings.screenWidth / graphics.settings.charWidth;
-        // auto lines = graphics.settings.screenHeight / graphics.settings.charHeight;
-        // for(int line =1; line < lines;line++){
-        //     memcpy(
-        //         gpu.GetTextBuffer()->text + ((line - 1) * lineLength),
-        //         gpu.GetTextBuffer()->text + (line * lineLength),
-        //         lineLength
-        //     );
-        // }      
-        // memset(gpu.GetTextBuffer()->text + (lines * lineLength),0,lineLength);  
-        //_drawTextFromRam();
     } else{ //otherwise move down one
         _cursorY += graphics.settings.charHeight;
         //Serial.println("Moving cursor down.");
@@ -699,13 +679,14 @@ bool Console::MoveCursorDown()
 
 bool Console::MoveCursorRight()
 {
-    if(_cursorX >= graphics.settings.screenWidth - (graphics.settings.charWidth)) return false;
-    // if(_cursorState){
-    //     _cursorState = false;
-    //     DrawCursor();
-    // }
+    if(_cursorX >= graphics.settings.screenWidth - (graphics.settings.charWidth)) return false;    
+    if(_echoPrompt && echoY == _cursorY &&
+        _cursorX > (_promptLength + strlen(_currentCommand) - 1) * graphics.settings.charWidth
+    )
+        return false; //no command there yet
 
     _cursorX += graphics.settings.charWidth;
+    if(_echoPrompt) _currentCommandIdx++; 
     _cursorState = true;
     DrawCursor();  
     return true;
@@ -714,46 +695,64 @@ bool Console::MoveCursorRight()
 bool Console::MoveCursorLeft()
 {
     if(_cursorX < (graphics.settings.charWidth)) return false;
-    //get rid of current if visible ** done in erase cursor
-    // if(_cursorState){
-    //     _cursorState = false;
-    //     DrawCursor();
-    // }
-
+    if(!((_echoPrompt && (echoY != _cursorY || _cursorX > (_promptLength * graphics.settings.charWidth)) ) || (!_echoPrompt))) 
+        return false; //collision with echo
     //move left and draw cursor
     _cursorX -= (graphics.settings.charWidth);
+    if(_echoPrompt) _currentCommandIdx--; 
     _cursorState = true;
     DrawCursor();   
     return true;
 }
 
+bool Console::MoveCursorHome()
+{
+    if(_cursorX < (graphics.settings.charWidth)) return false;
+
+    if(_echoPrompt && echoY == _cursorY ){
+        //if prompt visible and on prompt line, set after prompt
+        _cursorX = _promptLength * graphics.settings.charWidth; 
+        _currentCommandIdx = 0;
+    }        
+    else {
+        // set at the beggining
+        _cursorX -= (graphics.settings.charWidth);         
+    }
+    
+    _cursorState = true;
+    DrawCursor();   
+    return true;
+}
+
+bool Console::MoveCursorEnd()
+{
+    //if at end of line, return false
+    if(_cursorX >= graphics.settings.screenWidth - (graphics.settings.charWidth)) return false;
+    auto lineLength = gpu.GetTextBuffer()->GetLineLength(_cursorY / graphics.settings.charHeight);
+    if(lineLength - _promptLength <= 0) return false;
+    if(_echoPrompt && echoY == _cursorY ){
+        //on echo prompt
+        Serial.print("Moving cursor to end of echo prompt on char "); Serial.println( lineLength);
+        _cursorX = graphics.settings.charWidth * lineLength;
+        _currentCommandIdx = graphics.settings.charWidth * lineLength - _promptLength - 1;
+    } else{
+        _cursorX = graphics.settings.charWidth * gpu.GetTextBuffer()->GetLineLength(_cursorY / graphics.settings.charHeight);
+    }
+    _cursorState = true;
+    DrawCursor();   
+    return true;
+}
 
 void Console::DrawCursor()
 {
     if(!_cursorVisible) return;
-    //Serial.print("Drawing cursor "); Serial.print(_cursorState ? "ON" : "OFF"); Serial.print(" at row "); Serial.print(_cursorY / graphics.settings.charHeight); Serial.print(" column "); Serial.println(_cursorX / graphics.settings.charWidth);
-    //if not visible, hide, otherwise if visible show
-    //memset(_scratch.bytes, _cursorState ? Color::WHITE : graphics.settings.backgroundColor, graphics.settings.charWidth);
     gpu.GetTextBuffer()->UpdateCharUnderline(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, _cursorState);
-    //graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
-    //graphics.WriteBytes(((_cursorY + graphics.settings.charHeight) << graphics.settings.horizontalBits) + _cursorX, _scratch.bytes, graphics.settings.charWidth);
-    // #ifdef DOUBLE_BUFFER
-    // if(!graphics.isWaiting())
-    //     gpu.Render();
-    // #endif
 }
 
 void Console::EraseCursor()
 {
     if(!_cursorVisible) return;
-    //Serial.print("Erasing cursor at row "); Serial.print(_cursorY / graphics.settings.charHeight); Serial.print(" column "); Serial.println(_cursorX / graphics.settings.charWidth);
-    //memset(_scratch.bytes, 0, graphics.settings.charWidth);
     gpu.GetTextBuffer()->UpdateCharUnderline(_cursorX / graphics.settings.charWidth, _cursorY / graphics.settings.charHeight, false);
-    // graphics.drawLine(_cursorX, _cursorY, _cursorX + graphics.settings.charWidth, _cursorY,  _cursorState ? Color::WHITE : Color::BLACK); 
-    // #ifdef DOUBLE_BUFFER
-    // if(!graphics.isWaiting())
-    //     gpu.Render();
-    // #endif
 }
 
 void Console::printDiskInfo()
@@ -836,7 +835,7 @@ int Console::_saveCommand()
     memset(args, 0 , sizeof(args));
 
     //sanitize input
-    for(int idx=0, outidx = 0;idx < cmdLength; idx++){
+    for(uint16_t idx=0, outidx = 0;idx < cmdLength; idx++){
         if(_currentCommand[idx] == ' ' || _currentCommand[idx] == '\0'){
             cmdLength = idx;
             break;
@@ -846,8 +845,8 @@ int Console::_saveCommand()
         }
     }
     //args
-    for(int idx = cmdLength + 1 , outidx = 0;idx < strlen(_currentCommand); idx++){
-        if(_currentCommand[idx] == ' ' || _currentCommand[idx] == '\0'){            
+    for(uint16_t idx = cmdLength + 1 , outidx = 0;idx < strlen(_currentCommand); idx++){
+        if(/* _currentCommand[idx] == ' ' || */ _currentCommand[idx] == '\0'){            
             break;
         }
         if(_currentCommand[idx] > 31 && _currentCommand[idx] < 127){

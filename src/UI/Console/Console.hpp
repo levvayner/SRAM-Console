@@ -136,6 +136,8 @@ class Console : public Print{
     virtual bool MoveCursorDown();
     virtual bool MoveCursorRight();
     virtual bool MoveCursorLeft();
+    virtual bool MoveCursorHome();
+    virtual bool MoveCursorEnd();
 
     virtual inline void SetEchoMode(bool commandModeEnabled){
         //_commandMode = commandModeEnabled;
