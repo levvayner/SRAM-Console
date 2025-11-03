@@ -334,6 +334,8 @@ void graphicsTest(commandRequest request){
         ui.blockObject->shapeList = new ShapeList<GraphicsObject2D>();
     }
 
+    srand(millis()); //randomize random number generation
+
     // start clean
     gpu.ClearScreen();               // clears VRAM + GPU objects safely
     ui.blockObject->shapeList->clear(); // just in case
@@ -554,6 +556,11 @@ void graphicsTest(commandRequest request){
 
 
 void runConsole(commandRequest request){
+    if(console.IsConsoleRunning()){
+        console.begin();
+        console.clear();
+        return;
+    }
     console.run();
     graphics.clear();
     #ifdef DOUBLE_BUFFER
@@ -795,7 +802,7 @@ void UI::ClearScreen()
 
 void UI::ProcessInput() {
     if(commandReady){
-        //Serial.print("Receieved command: "); Serial.println(cmdBuf);
+        Serial.print("Receieved command: "); Serial.println(cmdBuf);
         //check if registered command
         auto command = commands.buildCommand(cmdBuf);
         if(command.valid){
