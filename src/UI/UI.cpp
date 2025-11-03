@@ -385,12 +385,16 @@ void graphicsTest(commandRequest request){
 
     ui.blockObject->shapeList->clear();
     for (int idx = 0; idx < numOfObjects; ++idx) {
+        auto x1 = random(5, graphics.settings.screenWidth  - 10);
+        auto y1 = random(5, graphics.settings.screenHeight - 10);
+        auto width = random(5,100);
+        auto height = random(5,100);
         GraphicsObject2D obj(
             new Rectangle2D(
-                random(5, graphics.settings.screenWidth  - 10),
-                random(5, graphics.settings.screenHeight - 10),
-                random(5, graphics.settings.screenHeight - 10),
-                random(5, graphics.settings.screenHeight - 10)
+                x1,
+                y1,
+                x1 + width,
+                y1 + height
             ),
             random(0,255)
         );
@@ -468,14 +472,12 @@ void graphicsTest(commandRequest request){
     ui.blockObject->shapeList->clear();
 
     for (int idx = 0; idx < numOfObjects; ++idx) {
+        auto x1 = random(5, graphics.settings.screenWidth  - 10);
+        auto y1 = random(5, graphics.settings.screenHeight - 10);
+        auto width = random(5,100);
+        auto height = random(5,100);
         GraphicsObject2D obj(
-            new Rectangle2D(
-                random(5, graphics.settings.screenWidth  - 10),
-                random(5, graphics.settings.screenHeight - 10),
-                random(5, graphics.settings.screenWidth  - 10),
-                random(5, graphics.settings.screenHeight - 10),
-                Fill
-            ),
+            new Rectangle2D(x1,y1, x1 + width, y1+height,Fill),
             random(0,255)
         );
         ui.blockObject->shapeList->push_back(std::move(obj));
